@@ -1,0 +1,4 @@
+.workbuddy/
+__pycache__/
+*.pyc
+deployed_page_source.html
