@@ -900,18 +900,26 @@
   .holdings-table .sector-tag {
     display: inline-block;
     font-size: 0.65rem;
-    padding: 2px 6px;
+    padding: 2px 8px;
     border-radius: 8px;
     font-weight: 500;
     white-space: nowrap;
   }
   .holdings-table .sector-change {
-    font-size: 0.62rem;
+    font-size: 1.05rem;
+    font-weight: 700;
     display: block;
-    margin-top: 1px;
+    margin-top: 4px;
+    letter-spacing: -0.5px;
   }
   .holdings-table .sector-change.up { color: var(--red); }
   .holdings-table .sector-change.down { color: var(--green); }
+  .holdings-table .sector-no-data {
+    font-size: 0.68rem;
+    color: #bbb;
+    display: block;
+    margin-top: 4px;
+  }
   .holdings-table .total-row {
     background: #f8f9fc;
     font-weight: 700;
@@ -2165,12 +2173,12 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     if (sectorBoard && sectorBoard.changeRate !== null) {
       const sChange = sectorBoard.changeRate;
       const sCls = sChange >= 0 ? "up" : "down";
-      const arrow = sChange >= 0 ? "↑" : "↓";
+      const sSign = sChange >= 0 ? "+" : "";
       sectorHtml = `<span class="sector-tag" style="background:${bg};color:${tc}">${meta.sectorBoardName || meta.sector}</span>
-        <span class="sector-change ${sCls}">${arrow} ${Math.abs(sChange).toFixed(2)}%</span>`;
+        <span class="sector-change ${sCls}">${sSign}${sChange.toFixed(2)}%</span>`;
     } else {
       sectorHtml = `<span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
-        <span class="sector-change">${meta.riskLevel}风险</span>`;
+        <span class="sector-no-data">加载中</span>`;
     }
 
     rows += `<tr>
