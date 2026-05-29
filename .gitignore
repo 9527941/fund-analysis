@@ -1,4 +1,4 @@
-.workbuddy/
-__pycache__/
+deploy/
 *.pyc
-deployed_page_source.html
+__pycache__/
+.DS_Store
