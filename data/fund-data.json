@@ -1,0 +1,50 @@
+{
+  "updated": "2026-05-29T14:15:00+08:00",
+  "funds": {
+    "013841": {
+      "name": "银华集成电路混合C",
+      "shortName": "银华集成电路",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-03-03", "type": "买入", "amount": 500.0, "shares": 275.31, "nav": 1.8161, "fee": 0 },
+        { "date": "2026-03-09", "type": "买入", "amount": 500.0, "shares": 280.26, "nav": 1.784, "fee": 0 },
+        { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 583.60, "nav": 1.7135, "fee": 0 }
+      ]
+    },
+    "002164": {
+      "name": "汇添富新睿精选灵活配置混合C",
+      "shortName": "汇添富新睿精选",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 655.74, "nav": 1.525, "fee": 0 }
+      ]
+    },
+    "012630": {
+      "name": "广发半导体芯片ETF联接C",
+      "shortName": "广发半导体芯片",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-05-14", "type": "买入", "amount": 1000.0, "shares": 745.38, "nav": 1.3416, "fee": 0 },
+        { "date": "2026-05-15", "type": "买入", "amount": 1000.0, "shares": 747.33, "nav": 1.3381, "fee": 0 }
+      ]
+    },
+    "004937": {
+      "name": "中航混改精选混合C",
+      "shortName": "中航混改精选",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-05-15", "type": "买入", "amount": 1000.0, "shares": 1065.98, "nav": 0.9381, "fee": 0 },
+        { "date": "2026-05-27", "type": "买入", "amount": 1000.0, "shares": 1035.20, "nav": 0.966, "fee": 0 },
+        { "date": "2026-05-28", "type": "买入", "amount": 1000.0, "shares": 1032.95, "nav": 0.9681, "fee": 0 }
+      ]
+    },
+    "024246": {
+      "name": "广发科创人工智能ETF联接C",
+      "shortName": "广发科创AI",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-05-27", "type": "买入", "amount": 2000.0, "shares": 1247.04, "nav": 1.6038, "fee": 0 }
+      ]
+    }
+  }
+}

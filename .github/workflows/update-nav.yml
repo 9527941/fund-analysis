@@ -1,0 +1,37 @@
+name: Update Fund NAV Data
+
+on:
+  schedule:
+    # 每个工作日晚上 22:00 北京时间 (UTC+8 = UTC 14:00)
+    - cron: '0 14 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-nav:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch latest NAV data
+        run: python .github/workflows/fetch_nav.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "fund-bot"
+          git config user.email "fund-bot[bot]@users.noreply.github.com"
+          git add data/fund-nav.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update fund-nav.json $(date +%Y-%m-%d)"
+            git push
+          fi

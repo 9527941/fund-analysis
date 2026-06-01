@@ -1,0 +1,25 @@
+{
+  "updateTime": "2026-05-29T16:30:00",
+  "boards": {
+    "90.BK1036": {
+      "name": "半导体",
+      "price": 2849.55,
+      "changeRate": -6.40
+    },
+    "90.BK0459": {
+      "name": "电网设备",
+      "price": 0,
+      "changeRate": null
+    },
+    "90.BK0478": {
+      "name": "有色金属",
+      "price": 0,
+      "changeRate": null
+    },
+    "90.BK0800": {
+      "name": "人工智能",
+      "price": 0,
+      "changeRate": null
+    }
+  }
+}
