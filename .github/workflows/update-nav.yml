@@ -2,8 +2,10 @@ name: Update Fund NAV Data
 
 on:
   schedule:
-    # 每个工作日晚上 22:00 北京时间 (UTC+8 = UTC 14:00)
-    - cron: '0 14 * * 1-5'
+    # 每个工作日 11:00 北京时间 (UTC+8 = UTC 03:00)
+    # 确认净值通常在当晚8-10点确认，最晚次日早上8-10点
+    # 设在上午11点确保所有基金确认净值已发布
+    - cron: '0 3 * * 1-5'
   workflow_dispatch:
 
 permissions:
