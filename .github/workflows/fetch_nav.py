@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
 从天天基金 JSONP 接口获取最新净值数据，更新 data/fund-nav.json
+从东方财富历史净值接口获取缺失的历史净值，更新 index.html 中的 HISTORY_RAW
 GitHub Actions 自动运行，无需本地电脑
 """
 import json
+import re
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 FUND_CODES = ["013841", "002164", "012630", "004937", "024246"]
 JSONP_URL = "https://fundgz.1234567.com.cn/js/{code}.js?rt={timestamp}"
-OUTPUT_FILE = "data/fund-nav.json"
+HISTORY_API = "https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize={size}&startDate={start}&endDate={end}"
+OUTPUT_NAV_FILE = "data/fund-nav.json"
+HTML_FILE = "index.html"
 
 
 def fetch_nav(code):
@@ -50,9 +54,105 @@ def fetch_nav(code):
     return None
 
 
-def main():
+def fetch_history_nav(code, start_date, end_date):
+    """从东方财富API获取指定日期范围的历史净值"""
+    url = HISTORY_API.format(code=code, size=10, start=start_date, end=end_date)
     try:
-        with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://fund.eastmoney.com/"
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+        data = json.loads(raw.decode("utf-8"))
+        items = data.get("Data", {}).get("LSJZList", [])
+        results = []
+        for item in items:
+            results.append({
+                "date": item["FSRQ"],
+                "nav": float(item["DWJZ"]),
+                "ljjz": float(item.get("LJJZ", item["DWJZ"]))
+            })
+        return results
+    except Exception as e:
+        print(f"  [WARN] {code}: history fetch failed: {e}")
+        return []
+
+
+def update_history_raw():
+    """更新 index.html 中嵌入的 HISTORY_RAW 数据"""
+    try:
+        with open(HTML_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        print("  [SKIP] index.html not found")
+        return False
+
+    match = re.search(r'const HISTORY_RAW = (\{.*?\});', content, re.DOTALL)
+    if not match:
+        print("  [SKIP] HISTORY_RAW not found in index.html")
+        return False
+
+    history_data = json.loads(match.group(1))
+    today = datetime.now()
+    updated = False
+
+    for code in FUND_CODES:
+        arr = history_data["funds"].get(code, [])
+        if not arr:
+            continue
+
+        # 找到最新日期
+        existing_dates = {d["date"] for d in arr}
+        latest_date = max(existing_dates)
+
+        # 从最新日期的下一天到今天，获取缺失的历史净值
+        latest_dt = datetime.strptime(latest_date, "%Y-%m-%d")
+        start_dt = latest_dt + timedelta(days=1)
+
+        if start_dt > today:
+            continue
+
+        start_str = start_dt.strftime("%Y-%m-%d")
+        end_str = today.strftime("%Y-%m-%d")
+
+        print(f"  Fetching history {code}: {start_str} ~ {end_str}")
+        new_entries = fetch_history_nav(code, start_str, end_str)
+
+        added = 0
+        for entry in new_entries:
+            if entry["date"] not in existing_dates:
+                arr.append(entry)
+                existing_dates.add(entry["date"])
+                added += 1
+
+        # 重新排序（最新在前）
+        arr.sort(key=lambda x: x["date"], reverse=True)
+        history_data["funds"][code] = arr
+
+        if added > 0:
+            updated = True
+            print(f"    Added {added} entries for {code}")
+        else:
+            print(f"    No new entries for {code}")
+
+    if updated:
+        new_json = json.dumps(history_data, ensure_ascii=False, separators=(",", ":"))
+        old_text = "const HISTORY_RAW = " + match.group(1) + ";"
+        new_text = "const HISTORY_RAW = " + new_json + ";"
+        content = content.replace(old_text, new_text)
+
+        with open(HTML_FILE, "w", encoding="utf-8") as f:
+            f.write(content)
+        print("  index.html HISTORY_RAW updated")
+
+    return updated
+
+
+def main():
+    # 1. 更新 fund-nav.json（实时净值缓存）
+    try:
+        with open(OUTPUT_NAV_FILE, "r", encoding="utf-8") as f:
             cache = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         cache = {"funds": {}, "updated": ""}
@@ -78,10 +178,16 @@ def main():
         "updated": today
     }
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+    with open(OUTPUT_NAV_FILE, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
-    print(f"=== Updated {updated_count}/{len(FUND_CODES)} funds ===")
+    print(f"=== Updated {updated_count}/{len(FUND_CODES)} funds (fund-nav.json) ===")
+
+    # 2. 更新 index.html 中的 HISTORY_RAW（历史净值）
+    print("=== Updating HISTORY_RAW ===")
+    history_updated = update_history_raw()
+    if not history_updated:
+        print("  No history updates needed")
 
 
 if __name__ == "__main__":
