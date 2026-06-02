@@ -30,10 +30,10 @@ jobs:
         run: |
           git config user.name "fund-bot"
           git config user.email "fund-bot[bot]@users.noreply.github.com"
-          git add data/fund-nav.json
+          git add data/fund-nav.json index.html
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update fund-nav.json $(date +%Y-%m-%d)"
+            git commit -m "chore: update fund data $(date +%Y-%m-%d)"
             git push
           fi
