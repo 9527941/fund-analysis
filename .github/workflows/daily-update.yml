@@ -1,0 +1,171 @@
+# 每日自动更新基金数据
+# 北京时间每个交易日 18:05 执行（UTC 10:05）
+# GitHub Actions 免费额度：公开仓库无限次
+name: 每日基金数据更新
+
+on:
+  schedule:
+    # UTC 10:05 = 北京时间 18:05（周一到周五）
+    - cron: '5 10 * * 1-5'
+  # 同时支持手动触发（点 Run workflow 按钮）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-fund-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: 安装依赖
+        run: pip install requests
+
+      - name: 创建数据目录
+        run: mkdir -p data
+
+      # --- Step 1: 从东方财富 API 拉取最新净值 ---
+      - name: 拉取最新净值数据
+        run: |
+          python3 << 'EOF'
+          import json, urllib.request, re, datetime, os
+          from pathlib import Path
+
+          FUNDS = {
+              "013841": {"name": "银华集成电路混合C", "shortName": "银华集成电路"},
+              "002164": {"name": "汇添富新睿精选灵活配置混合C", "shortName": "汇添富新睿精选"},
+              "012630": {"name": "广发半导体芯片ETF联接C", "shortName": "广发半导体芯片"},
+              "004937": {"name": "中航混改精选混合C", "shortName": "中航混改精选"},
+              "024246": {"name": "广发科创人工智能ETF联接C", "shortName": "广发科创AI"},
+          }
+
+          def fetch_nav(code):
+              """从东方财富获取实时估值"""
+              url = f"https://fundgz.1234567.com.cn/js/{code}.js"
+              try:
+                  req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                  with urllib.request.urlopen(req, timeout=10) as resp:
+                      text = resp.read().decode("utf-8")
+                  m = re.search(r'jsonpgz\((.+)\)', text)
+                  if m:
+                      d = json.loads(m.group(1))
+                      return {
+                          "name": d["name"],
+                          "gsz": float(d["gsz"]),
+                          "dwjz": float(d["dwjz"]),
+                          "gszzl": float(d["gszzl"]),
+                          "gztime": d.get("gztime", ""),
+                          "jzrq": d.get("jzrq", datetime.date.today().strftime("%Y-%m-%d"))
+                      }
+              except Exception as e:
+                  print(f"  [WARN] {code} fetch failed: {e}")
+              return None
+
+          print("=" * 50)
+          print(f"基金净值更新 | {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}")
+          print("=" * 50)
+
+          nav_data = {}
+          for code, info in FUNDS.items():
+              print(f"\n  获取 {code} ({info['shortName']})...")
+              nav = fetch_nav(code)
+              if nav:
+                  nav_data[code] = nav
+                  print(f"    估值: {nav['gsz']} | 确认净值: {nav['dwjz']} | 涨跌: {nav['gszzl']}%")
+              else:
+                  # fallback: 保留旧数据
+                  old_file = Path(f"data/fund-nav.json")
+                  if old_file.exists():
+                      old = json.loads(old_file.read_text(encoding="utf-8")).get("funds", {})
+                      if code in old:
+                          nav_data[code] = old[code]
+                          print(f"    使用旧数据: {old[code].get('dwjz', 'N/A')}")
+
+          output = {"updated": datetime.datetime.now().isoformat(), "funds": nav_data}
+          Path("data/fund-nav.json").write_text(
+              json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+          print(f"\n✅ 已保存 data/fund-nav.json ({len(nav_data)} 只基金)")
+          EOF
+
+      # --- Step 2: 注入内嵌数据到 fund-report.html ---
+      - name: 注入内嵌数据到 fund-report.html
+        run: |
+          python3 << 'PYEOF'
+          import json, re
+          from pathlib import Path
+
+          # 读取最新净值
+          nav_path = Path("data/fund-nav.json")
+          nav_json = json.loads(nav_path.read_text(encoding="utf-8")) if nav_path.exists() else {"funds": {}}
+          nav_funds = nav_json.get("funds", {})
+          updated_ts = nav_json.get("updated", "")
+
+          # 读取交易数据
+          data_path = Path("data/fund-data.json")
+          fund_data_json = json.loads(data_path.read_text(encoding="utf-8")) if data_path.exists() else {"funds": {}}
+
+          # 构建 EMBEDDED_NAV
+          embedded_nav_parts = []
+          for code in ["013841", "002164", "012630", "004937", "024246"]:
+              entry = nav_funds.get(code)
+              if entry:
+                  embedded_nav_parts.append(
+                      f'"{code}":{{"name":"{entry["name"]}","gsz":{entry["gsz"]},'
+                      f'"dwjz":{entry["dwjz"]},"gszzl":{entry["gszzl"]},'
+                      f'"gztime":"{entry["gztime"]}","jzrq":"{entry["jzrq"]}"}}'
+                  )
+
+          # 构建 EMBEDDED_FUND_DATA (保持原始交易记录不变)
+          fund_data_str = json.dumps(fund_data_json, ensure_ascii=False)
+
+          html = Path("fund-report.html").read_text(encoding="utf-8")
+
+          # 替换 EMBEDDED_NAV
+          pattern_nav = r'(const EMBEDDED_NAV = \{).*?(\};)'
+          replacement_nav = r'\1\n  ' + ',\n  '.join(embedded_nav_parts) + '\n\2'
+          html = re.sub(pattern_nav, replacement_nav, html, flags=re.DOTALL)
+
+          # 替换 EMBEDDED_FUND_DATA (完整替换)
+          pattern_data = r'(const EMBEDDED_FUND_DATA = ).*?(;)'
+          replacement_data = r'\1' + json.dumps(fund_data_json, ensure_ascii=False) + r'\2'
+          html = re.sub(pattern_data, replacement_data, html, flags=re.DOTALL)
+
+          Path("fund-report.html").write_text(html, encoding="utf-8")
+          print(f"✅ 已注入 {len(embedded_nav_parts)} 只基金内嵌数据到 fund-report.html")
+
+          # 也生成一份简版 index.html（静态兜底）
+          report_html = Path("fund-report.html")
+          if report_html.exists():
+              Path("index.html").write_text(report_html.read_text(encoding="utf-8"), encoding="utf-8")
+              print(f"✅ index.html 已同步")
+          PYEOF
+
+      # --- Step 3: Git 提交并推送 ---
+      - name: Git 提交推送
+        run: |
+          git config user.name "auto-bot[bot]"
+          git config user.email "9527941+auto-bot[bot]@users.noreply.github.com"
+          git add data/fund-nav.json fund-report.html index.html || true
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          TODAY=$(date +%Y-%m-%d)
+          git commit -m "auto: 每日净值更新 ${TODAY} [skip ci]" || true
+          git push origin main || git push origin master || echo "Push failed"
+          echo "✅ 推送完成"
+
+      # --- 可选: 部署确认 ---
+      - name: 部署状态摘要
+        if: always()
+        run: |
+          echo "========================================="
+          echo "  基金数据更新完成"
+          echo "  GitHub Pages URL:"
+          echo "  https://9527941.github.io/fund-analysis/"
+          echo "========================================="
