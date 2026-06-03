@@ -2,10 +2,14 @@ name: Update Fund NAV Data
 
 on:
   schedule:
-    # 每个工作日 22:00 北京时间 (UTC 14:00) — 净值当晚8-10点确认后立即更新
+    # 第一层：21:00 北京时间 (UTC 13:00) — 早捕，部分基金此时已出确认净值
+    - cron: '0 13 * * 1-5'
+    # 第二层：22:00 北京时间 (UTC 14:00) — 主更新，大部分基金此时净值已确认
     - cron: '0 14 * * 1-5'
-    # 兜底：23:00 北京时间 (UTC 15:00) — 防止Actions延迟导致22:00的任务太晚执行
+    # 第三层：23:00 北京时间 (UTC 15:00) — 晚间兜底，防止Actions延迟
     - cron: '0 15 * * 1-5'
+    # 第四层：次日 06:00 北京时间 (UTC 22:00 前一天) — 早晨补漏，处理延迟到次日的净值
+    - cron: '0 22 * * 2-6'
   workflow_dispatch:
 
 permissions:
@@ -26,7 +30,35 @@ jobs:
       - name: Fetch latest NAV data
         run: python .github/workflows/fetch_nav.py
 
+      - name: Check if data is already up-to-date
+        id: check
+        run: |
+          CACHED_DATE=$(python3 -c "import json; d=json.load(open('data/fund-nav.json')); print(d['updated'])" 2>/dev/null || echo "")
+          TODAY=$(date -u +%Y-%m-%d)
+          echo "cached_date=$CACHED_DATE"
+          echo "today=$TODAY"
+          if [ "$CACHED_DATE" = "$TODAY" ]; then
+            # 检查是否所有基金的 jzrq 都是今天（说明确认净值已全部到位）
+            ALL_TODAY=$(python3 -c "
+import json
+d=json.load(open('data/fund-nav.json'))
+dates=[d['funds'][c]['jzrq'] for c in d['funds'] if 'jzrq' in d['funds'][c]]
+print('yes' if dates and all(x==dates[0] for x in dates) else 'no')
+" 2>/dev/null || echo "no")
+            echo "all_today=$ALL_TODAY"
+            if [ "$ALL_TODAY" = "yes" ]; then
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "Data already up-to-date for $TODAY, skipping commit"
+            else
+              echo "skip=false" >> $GITHUB_OUTPUT
+              echo "Cache updated today but some funds have older jzrq, will check for changes"
+            fi
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Commit and push if changed
+        if: steps.check.outputs.skip != 'true'
         run: |
           git config user.name "fund-bot"
           git config user.email "fund-bot[bot]@users.noreply.github.com"
@@ -35,5 +67,5 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "chore: update fund data $(date +%Y-%m-%d)"
-            git push
+            git push --force-with-lease
           fi
