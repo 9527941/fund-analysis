@@ -62,7 +62,7 @@ print('yes' if dates and all(x==dates[0] for x in dates) else 'no')
         run: |
           git config user.name "fund-bot"
           git config user.email "fund-bot[bot]@users.noreply.github.com"
-          git add data/fund-nav.json index.html
+          git add data/fund-nav.json index.html fund-report.html
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
