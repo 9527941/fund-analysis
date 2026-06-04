@@ -14,6 +14,7 @@ JSONP_URL = "https://fundgz.1234567.com.cn/js/{code}.js?rt={timestamp}"
 HISTORY_API = "https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize={size}&startDate={start}&endDate={end}"
 OUTPUT_NAV_FILE = "data/fund-nav.json"
 HTML_FILE = "index.html"
+REPORT_FILE = "fund-report.html"
 
 
 def fetch_nav(code):
@@ -188,6 +189,55 @@ def main():
     history_updated = update_history_raw()
     if not history_updated:
         print("  No history updates needed")
+
+    # 3. 更新 fund-report.html 中的 EMBEDDED_NAV（内嵌实时净值）
+    print("=== Updating EMBEDDED_NAV in fund-report.html ===")
+    report_updated = update_embedded_nav(funds)
+    if not report_updated:
+        print("  No fund-report.html updates needed")
+
+
+def update_embedded_nav(funds_data):
+    """更新 fund-report.html 中的 EMBEDDED_NAV 数据"""
+    try:
+        with open(REPORT_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        print("  [SKIP] fund-report.html not found")
+        return False
+
+    # 匹配 EMBEDDED_NAV = {...};
+    match = re.search(r'const EMBEDDED_NAV = (\{.*?\});', content, re.DOTALL)
+    if not match:
+        print("  [SKIP] EMBEDDED_NAV not found in fund-report.html")
+        return False
+
+    # 构建新的 EMBEDDED_NAV
+    new_nav = {}
+    for code, info in funds_data.items():
+        new_nav[code] = {
+            "name": info.get("name", ""),
+            "gsz": info.get("gsz", 0),
+            "dwjz": info.get("dwjz", 0),
+            "gszzl": info.get("gszzl", 0),
+            "gztime": info.get("gztime", ""),
+            "jzrq": info.get("jzrq", "")
+        }
+
+    new_json = json.dumps(new_nav, ensure_ascii=False, separators=(",", ":"))
+    old_text = "const EMBEDDED_NAV = " + match.group(1) + ";"
+    new_text = "const EMBEDDED_NAV = " + new_json + ";"
+
+    if old_text == new_text:
+        print("  EMBEDDED_NAV unchanged")
+        return False
+
+    content = content.replace(old_text, new_text)
+
+    with open(REPORT_FILE, "w", encoding="utf-8") as f:
+        f.write(content)
+    print("  fund-report.html EMBEDDED_NAV updated")
+    return True
 
 
 if __name__ == "__main__":
