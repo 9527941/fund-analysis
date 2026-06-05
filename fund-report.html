@@ -1554,8 +1554,14 @@ function calcFund(code, nav) {
     if (t.type.includes("卖出")) {
       return;
     }
-    // Pending buys: count cost (money committed), but skip shares (not confirmed yet)
-    if (!t.pending && t.shares) totalShares += t.shares;
+    // Pending buys: use estimated shares (amount/nav) if no confirmed shares yet
+    if (t.pending) {
+      const estNav = t.nav || nav; // use recorded estimated nav or current nav
+      const estShares = t.shares || (estNav > 0 ? t.amount / estNav : 0);
+      totalShares += estShares;
+    } else if (t.shares) {
+      totalShares += t.shares;
+    }
     totalCost += t.amount;
   });
 
@@ -1569,7 +1575,7 @@ function calcFund(code, nav) {
 
 function getHoldingDays(code) {
   const f = FUND_DATA[code];
-  const firstTx = f.transactions.filter(t => !t.pending).sort((a,b) => a.date.localeCompare(b.date))[0];
+  const firstTx = f.transactions.sort((a,b) => a.date.localeCompare(b.date))[0];
   if (!firstTx) return 0;
   const firstDate = new Date(firstTx.date);
   const now = new Date();
@@ -2294,7 +2300,7 @@ function populateSingleFund() {
   // Costs / transactions
   let buyCount = 0, lastBuyDate = '';
   if (FUND_DATA[code] && FUND_DATA[code].transactions) {
-    const buys = FUND_DATA[code].transactions.filter(t => t.type.includes('买入') && !t.pending);
+    const buys = FUND_DATA[code].transactions.filter(t => t.type.includes('买入'));
     buyCount = buys.length;
     if (buys.length > 0) lastBuyDate = buys.sort((a,b) => b.date.localeCompare(a.date))[0].date;
   }
