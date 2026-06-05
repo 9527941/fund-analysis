@@ -57,7 +57,7 @@ def fetch_nav(code):
 
 def fetch_history_nav(code, start_date, end_date):
     """从东方财富API获取指定日期范围的历史净值"""
-    url = HISTORY_API.format(code=code, size=10, start=start_date, end=end_date)
+    url = HISTORY_API.format(code=code, size=40, start=start_date, end=end_date)
     try:
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -80,18 +80,18 @@ def fetch_history_nav(code, start_date, end_date):
         return []
 
 
-def update_history_raw():
-    """更新 index.html 中嵌入的 HISTORY_RAW 数据"""
+def _do_update_history_raw(filepath):
+    """更新指定文件中嵌入的 HISTORY_RAW 数据（通用逻辑）"""
     try:
-        with open(HTML_FILE, "r", encoding="utf-8") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
     except FileNotFoundError:
-        print("  [SKIP] index.html not found")
+        print(f"  [SKIP] {filepath} not found")
         return False
 
     match = re.search(r'const HISTORY_RAW = (\{.*?\});', content, re.DOTALL)
     if not match:
-        print("  [SKIP] HISTORY_RAW not found in index.html")
+        print(f"  [SKIP] HISTORY_RAW not found in {filepath}")
         return False
 
     history_data = json.loads(match.group(1))
@@ -143,11 +143,21 @@ def update_history_raw():
         new_text = "const HISTORY_RAW = " + new_json + ";"
         content = content.replace(old_text, new_text)
 
-        with open(HTML_FILE, "w", encoding="utf-8") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
-        print("  index.html HISTORY_RAW updated")
+        print(f"  {filepath} HISTORY_RAW updated")
 
     return updated
+
+
+def update_history_raw():
+    """更新 index.html 中嵌入的 HISTORY_RAW 数据"""
+    return _do_update_history_raw(HTML_FILE)
+
+
+def update_report_history_raw():
+    """更新 fund-report.html 中嵌入的 HISTORY_RAW 数据"""
+    return _do_update_history_raw(REPORT_FILE)
 
 
 def main():
@@ -185,10 +195,16 @@ def main():
     print(f"=== Updated {updated_count}/{len(FUND_CODES)} funds (fund-nav.json) ===")
 
     # 2. 更新 index.html 中的 HISTORY_RAW（历史净值）
-    print("=== Updating HISTORY_RAW ===")
+    print("=== Updating HISTORY_RAW in index.html ===")
     history_updated = update_history_raw()
     if not history_updated:
-        print("  No history updates needed")
+        print("  No history updates needed for index.html")
+
+    # 2b. 更新 fund-report.html 中的 HISTORY_RAW（历史净值）
+    print("=== Updating HISTORY_RAW in fund-report.html ===")
+    report_history_updated = update_report_history_raw()
+    if not report_history_updated:
+        print("  No history updates needed for fund-report.html")
 
     # 3. 更新 fund-report.html 中的 EMBEDDED_NAV（内嵌实时净值）
     print("=== Updating EMBEDDED_NAV in fund-report.html ===")
