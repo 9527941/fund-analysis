@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-29T14:15:00+08:00",
+  "updated": "2026-06-05T14:45:00+08:00",
   "funds": {
     "013841": {
       "name": "银华集成电路混合C",
@@ -16,7 +16,8 @@
       "shortName": "汇添富新睿精选",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 655.74, "nav": 1.525, "fee": 0 }
+        { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 655.74, "nav": 1.525, "fee": 0 },
+        { "date": "2026-06-05", "type": "买入", "amount": 1000.0, "shares": 580.28, "nav": 1.7234, "fee": 0, "pending": true }
       ]
     },
     "012630": {
@@ -43,7 +44,24 @@
       "shortName": "广发科创AI",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-05-27", "type": "买入", "amount": 2000.0, "shares": 1247.04, "nav": 1.6038, "fee": 0 }
+        { "date": "2026-05-27", "type": "买入", "amount": 2000.0, "shares": 1247.04, "nav": 1.6038, "fee": 0 },
+        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 1354.40, "nav": 1.4767, "fee": 0, "pending": true }
+      ]
+    },
+    "001423": {
+      "name": "景顺长城安享回报混合C",
+      "shortName": "景顺安享回报",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-06-05", "type": "买入", "amount": 20000.0, "shares": 12615.04, "nav": 1.5856, "fee": 0, "pending": true }
+      ]
+    },
+    "016020": {
+      "name": "招商中证电池主题ETF联接C",
+      "shortName": "招商电池",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 2212.88, "nav": 0.9038, "fee": 0, "pending": true }
       ]
     }
   }
