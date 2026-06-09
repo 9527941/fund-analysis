@@ -1,0 +1,27 @@
+name: Update Fund NAV
+on:
+  schedule:
+    - cron: '0 13 * * 1-5'
+    - cron: '0 14 * * 1-5'
+    - cron: '0 15 * * 1-5'
+    - cron: '0 22 * * 2-6'
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/.nav-trigger'
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python .github/workflows/fetch_nav.py
+      - run: |
+          git config user.name "fund-bot"
+          git config user.email "fund-bot[bot]@users.noreply.github.com"
+          git add data/fund-nav.json index.html fund-report.html
+          git diff --cached --quiet || (git commit -m "auto: update fund data" && git push)
