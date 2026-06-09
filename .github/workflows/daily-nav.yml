@@ -2,13 +2,9 @@ name: Update Fund NAV Data
 
 on:
   schedule:
-    # 第一层：21:00 北京时间 (UTC 13:00) — 早捕，部分基金此时已出确认净值
     - cron: '0 13 * * 1-5'
-    # 第二层：22:00 北京时间 (UTC 14:00) — 主更新，大部分基金此时净值已确认
     - cron: '0 14 * * 1-5'
-    # 第三层：23:00 北京时间 (UTC 15:00) — 晚间兜底，防止Actions延迟
     - cron: '0 15 * * 1-5'
-    # 第四层：次日 06:00 北京时间 (UTC 22:00 前一天) — 早晨补漏，处理延迟到次日的净值
     - cron: '0 22 * * 2-6'
   workflow_dispatch:
 
@@ -38,7 +34,6 @@ jobs:
           echo "cached_date=$CACHED_DATE"
           echo "today=$TODAY"
           if [ "$CACHED_DATE" = "$TODAY" ]; then
-            # 检查是否所有基金的 jzrq 都是今天（说明确认净值已全部到位）
             ALL_TODAY=$(python3 -c "
 import json
 d=json.load(open('data/fund-nav.json'))
@@ -67,5 +62,5 @@ print('yes' if dates and all(x==dates[0] for x in dates) else 'no')
             echo "No changes to commit"
           else
             git commit -m "chore: update fund data $(date +%Y-%m-%d)"
-            git push --force-with-lease
+            git push
           fi
