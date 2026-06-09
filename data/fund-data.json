@@ -17,7 +17,7 @@
       "dividendType": "红利再投资",
       "transactions": [
         { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 655.74, "nav": 1.525, "fee": 0 },
-        { "date": "2026-06-05", "type": "买入", "amount": 1000.0, "shares": 580.28, "nav": 1.7234, "fee": 0, "pending": true }
+        { "date": "2026-06-05", "type": "买入", "amount": 1000.0, "shares": 581.73, "nav": 1.719, "fee": 0 }
       ]
     },
     "012630": {
@@ -45,7 +45,7 @@
       "dividendType": "红利再投资",
       "transactions": [
         { "date": "2026-05-27", "type": "买入", "amount": 2000.0, "shares": 1247.04, "nav": 1.6038, "fee": 0 },
-        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 1354.40, "nav": 1.4767, "fee": 0, "pending": true }
+        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 1347.71, "nav": 1.484, "fee": 0 }
       ]
     },
     "001423": {
@@ -53,7 +53,7 @@
       "shortName": "景顺安享回报",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-06-05", "type": "买入", "amount": 20000.0, "shares": 12615.04, "nav": 1.5856, "fee": 0, "pending": true }
+        { "date": "2026-06-05", "type": "买入", "amount": 20000.0, "shares": 12626.26, "nav": 1.584, "fee": 0 }
       ]
     },
     "016020": {
@@ -61,7 +61,7 @@
       "shortName": "招商电池",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 2212.88, "nav": 0.9038, "fee": 0, "pending": true }
+        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 2205.31, "nav": 0.9069, "fee": 0 }
       ]
     }
   }
