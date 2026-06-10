@@ -830,6 +830,85 @@
   .dca-verdict.lose { background: #e8f5e9; color: #1e7e34; }
 
   /* ============================================================
+     Realized P&L Module (已实现盈亏)
+     ============================================================ */
+  .realized-section {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .realized-section h3 {
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .realized-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+  .realized-table th {
+    background: #f8f9fc;
+    padding: 8px 6px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    font-size: 0.7rem;
+  }
+  .realized-table td {
+    padding: 8px 6px;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+  }
+  .realized-table .fund-name-cell {
+    text-align: left;
+    min-width: 110px;
+  }
+  .realized-table .fund-name-title {
+    font-weight: 600;
+    font-size: 0.8rem;
+    display: block;
+  }
+  .realized-table .fund-code-text {
+    font-size: 0.65rem;
+    color: #999;
+    display: block;
+  }
+  .realized-table .pnl-cell { font-weight: 600; }
+  .realized-table .pnl-cell.up { color: var(--red); }
+  .realized-table .pnl-cell.down { color: var(--green); }
+  .realized-table .pnl-rate {
+    font-size: 0.65rem;
+    opacity: 0.85;
+    margin-top: 1px;
+    font-weight: 500;
+  }
+  .realized-table .sell-detail {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .realized-table .total-row {
+    background: #f8f9fc;
+    font-weight: 700;
+    border-top: 2px solid var(--border);
+  }
+  .realized-table .total-row td { padding: 10px 6px; font-size: 0.82rem; }
+  .realized-empty {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    font-size: 0.82rem;
+  }
+
+  /* ============================================================
      Holdings Overview Table (参考网站模块3)
      ============================================================ */
   .holdings-section {
@@ -1157,6 +1236,28 @@
         </tr>
       </thead>
       <tbody id="holdingsTbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 💰 已实现盈亏 (Realized P&L) -->
+<div class="realized-section" id="realizedSection">
+  <h3>💰 已实现盈亏</h3>
+  <div class="table-scroll">
+    <table class="realized-table" id="realizedTable">
+      <thead>
+        <tr>
+          <th>基金名称</th>
+          <th>卖出日期</th>
+          <th>卖出份额</th>
+          <th>卖出金额</th>
+          <th>对应成本</th>
+          <th>已实现盈亏</th>
+        </tr>
+      </thead>
+      <tbody id="realizedTbody">
+        <tr><td colspan="6" class="realized-empty">暂无卖出记录</td></tr>
+      </tbody>
     </table>
   </div>
 </div>
@@ -5006,6 +5107,153 @@ const FUND_META = {
 };
 
 // ============================================================
+// Realized P&L Calculation (已实现盈亏)
+// ============================================================
+
+/**
+ * 计算所有基金的已实现盈亏
+ * 逻辑：按交易顺序遍历，遇到卖出时，用卖出时刻的持仓平均成本 × 卖出份额 计算对应成本
+ *       已实现盈亏 = 卖出金额 - 对应成本
+ * @returns {Object} { funds: { [code]: { sellRecords: [...], totalRealized, totalCost }, grandRealized, grandCost }
+ */
+function calcRealizedPnL() {
+  const codes = Object.keys(FUND_DATA);
+  const result = { funds: {}, grandRealized: 0, grandCost: 0 };
+  let grandRealized = 0, grandCost = 0;
+
+  codes.forEach(code => {
+    const f = FUND_DATA[code];
+    let totalShares = 0, totalCost = 0;
+    const sellRecords = [];
+
+    f.transactions.forEach(t => {
+      if (t.type.includes("卖出")) {
+        const sellShares = t.shares || 0;
+        if (sellShares > 0 && totalShares > 0) {
+          const avgCost = totalCost / totalShares;
+          const costBasis = avgCost * sellShares;
+          const sellAmount = t.amount || (sellShares * t.nav);
+          const realizedPnL = sellAmount - costBasis;
+          const realizedRate = costBasis > 0 ? (realizedPnL / costBasis) * 100 : 0;
+          sellRecords.push({
+            date: t.date,
+            shares: sellShares,
+            nav: t.nav,
+            sellAmount: sellAmount,
+            costBasis: costBasis,
+            avgCost: avgCost,
+            realizedPnL: realizedPnL,
+            realizedRate: realizedRate,
+            pending: t.pending || false
+          });
+          totalShares -= sellShares;
+          totalCost -= costBasis;
+          grandRealized += realizedPnL;
+          grandCost += costBasis;
+        }
+        return;
+      }
+      // Buy
+      if (t.pending) {
+        const estNav = t.nav || 0;
+        const estShares = t.shares || (estNav > 0 ? t.amount / estNav : 0);
+        totalShares += estShares;
+      } else if (t.shares) {
+        totalShares += t.shares;
+      }
+      totalCost += t.amount;
+    });
+
+    if (sellRecords.length > 0) {
+      const fundTotalRealized = sellRecords.reduce((s, r) => s + r.realizedPnL, 0);
+      const fundTotalCost = sellRecords.reduce((s, r) => s + r.costBasis, 0);
+      result.funds[code] = {
+        name: f.name || f.shortName,
+        shortName: f.shortName,
+        sellRecords: sellRecords,
+        totalRealized: fundTotalRealized,
+        totalCost: fundTotalCost,
+        totalRate: fundTotalCost > 0 ? (fundTotalRealized / fundTotalCost) * 100 : 0
+      };
+    }
+  });
+
+  result.grandRealized = grandRealized;
+  result.grandCost = grandCost;
+  result.grandRate = grandCost > 0 ? (grandRealized / grandCost) * 100 : 0;
+  return result;
+}
+
+/**
+ * 渲染已实现盈亏表格
+ */
+function buildRealizedPnLTable() {
+  const data = calcRealizedPnL();
+  const fundCodes = Object.keys(data.funds);
+
+  if (fundCodes.length === 0) {
+    document.getElementById("realizedTbody").innerHTML =
+      '<tr><td colspan="6" class="realized-empty">暂无卖出记录</td></tr>';
+    return;
+  }
+
+  let rows = "";
+
+  fundCodes.forEach(code => {
+    const fund = data.funds[code];
+    fund.sellRecords.forEach((rec, idx) => {
+      const pendingTag = rec.pending ? ' <span style="color:#f39c12;font-size:0.62rem">待确认</span>' : '';
+      rows += `<tr>
+        <td class="fund-name-cell">
+          ${idx === 0 ? `<span class="fund-name-title">${fund.shortName}</span><span class="fund-code-text">${code}</span>` : ''}
+        </td>
+        <td>${rec.date}${pendingTag}</td>
+        <td>${rec.shares.toFixed(2)} 份</td>
+        <td>¥${rec.sellAmount.toFixed(2)}</td>
+        <td>¥${rec.costBasis.toFixed(2)}<div class="sell-detail">均价 ¥${rec.avgCost.toFixed(4)}</div></td>
+        <td class="pnl-cell">
+          <div class="${upDownClass(rec.realizedPnL)}">${formatMoney(rec.realizedPnL)}</div>
+          <div class="pnl-rate ${upDownClass(rec.realizedRate)}">${formatRate(rec.realizedRate)}</div>
+        </td>
+      </tr>`;
+    });
+
+    // Subtotal row for fund with multiple sells
+    if (fund.sellRecords.length > 1) {
+      rows += `<tr style="background:#fafbfc;font-weight:600;">
+        <td class="fund-name-cell" style="text-align:right;font-size:0.72rem;color:var(--text-secondary);">小计</td>
+        <td>--</td>
+        <td>${fund.sellRecords.reduce((s, r) => s + r.shares, 0).toFixed(2)} 份</td>
+        <td>¥${fund.sellRecords.reduce((s, r) => s + r.sellAmount, 0).toFixed(2)}</td>
+        <td>¥${fund.totalCost.toFixed(2)}</td>
+        <td class="pnl-cell">
+          <div class="${upDownClass(fund.totalRealized)}">${formatMoney(fund.totalRealized)}</div>
+          <div class="pnl-rate ${upDownClass(fund.totalRate)}">${formatRate(fund.totalRate)}</div>
+        </td>
+      </tr>`;
+    }
+  });
+
+  // Grand total row
+  const hasMultiple = fundCodes.length > 1 || fundCodes.some(c => data.funds[c].sellRecords.length > 1);
+  if (hasMultiple) {
+    rows += `<tr class="total-row">
+      <td class="fund-name-cell"><span class="fund-name-title">合计</span></td>
+      <td>--</td>
+      <td>--</td>
+      <td>--</td>
+      <td><strong>¥${data.grandCost.toFixed(2)}</strong></td>
+      <td class="pnl-cell">
+        <div class="${upDownClass(data.grandRealized)}"><strong>${formatMoney(data.grandRealized)}</strong></div>
+        <div class="pnl-rate ${upDownClass(data.grandRate)}"><strong>${formatRate(data.grandRate)}</strong></div>
+      </td>
+    </tr>`;
+  }
+
+  document.getElementById("realizedTbody").innerHTML = rows;
+}
+
+// ============================================================
 // Core Calculation
 // ============================================================
 function calcFund(code, nav) {
@@ -6296,6 +6544,9 @@ async function render() {
   // --- Holdings Overview Table ---
   buildHoldingsTable(codes, navResults, sectorData);
 
+  // --- Realized P&L Table ---
+  buildRealizedPnLTable();
+
   // --- Quick Glance ---
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, navResults);
 
@@ -6364,6 +6615,9 @@ async function refreshAll() {
   // Holdings table
   const sectorData2 = await fetchSectorBoards();
   buildHoldingsTable(codes, navResults, sectorData2);
+
+  // Realized P&L table
+  buildRealizedPnLTable();
 
   // Quick glance
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, navResults);
