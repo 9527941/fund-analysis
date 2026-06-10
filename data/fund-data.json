@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-05T14:45:00+08:00",
+  "updated": "2026-06-10T15:00:00+08:00",
   "funds": {
     "013841": {
       "name": "银华集成电路混合C",
@@ -8,7 +8,8 @@
       "transactions": [
         { "date": "2026-03-03", "type": "买入", "amount": 500.0, "shares": 275.31, "nav": 1.8161, "fee": 0 },
         { "date": "2026-03-09", "type": "买入", "amount": 500.0, "shares": 280.26, "nav": 1.784, "fee": 0 },
-        { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 583.60, "nav": 1.7135, "fee": 0 }
+        { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 583.60, "nav": 1.7135, "fee": 0 },
+        { "date": "2026-06-10", "type": "卖出", "amount": 1011.12, "shares": 400.0, "nav": 2.5278, "pending": true }
       ]
     },
     "002164": {
@@ -61,7 +62,16 @@
       "shortName": "招商电池",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 2205.31, "nav": 0.9069, "fee": 0 }
+        { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 2205.31, "nav": 0.9069, "fee": 0 },
+        { "date": "2026-06-10", "type": "买入", "amount": 1000.0, "shares": 1136.36, "nav": 0.8800, "fee": 0, "pending": true }
+      ]
+    },
+    "016186": {
+      "name": "广发电力公用事业ETF联接C",
+      "shortName": "广发电力",
+      "dividendType": "红利再投资",
+      "transactions": [
+        { "date": "2026-06-10", "type": "买入", "amount": 2000.0, "shares": 1708.23, "nav": 1.1708, "fee": 0, "pending": true }
       ]
     }
   }

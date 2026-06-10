@@ -1471,8 +1471,206 @@ let lastNavResults = {}; // Keep latest NAV for stop-loss checks
 // ============================================================
 // Embedded fallback data — 当远程请求失败时使用（gen_html.py 自动更新）
 // ============================================================
-const EMBEDDED_FUND_DATA = {"updated":"2026-06-09T09:34:00+08:00","funds":{"013841":{"name":"银华集成电路混合C","shortName":"银华集成电路","dividendType":"红利再投资","transactions":[{"date":"2026-03-03","type":"买入","amount":500,"shares":275.31,"nav":1.8161,"fee":0},{"date":"2026-03-09","type":"买入","amount":500,"shares":280.26,"nav":1.784,"fee":0},{"date":"2026-03-19","type":"买入","amount":1000,"shares":583.6,"nav":1.7135,"fee":0}]},"002164":{"name":"汇添富新睿精选灵活配置混合C","shortName":"汇添富新睿精选","dividendType":"红利再投资","transactions":[{"date":"2026-03-19","type":"买入","amount":1000,"shares":655.74,"nav":1.525,"fee":0},{"date":"2026-06-05","type":"买入","amount":1000,"shares":581.73,"nav":1.719,"fee":0}]},"012630":{"name":"广发半导体芯片ETF联接C","shortName":"广发半导体芯片","dividendType":"红利再投资","transactions":[{"date":"2026-05-14","type":"买入","amount":1000,"shares":745.38,"nav":1.3416,"fee":0},{"date":"2026-05-15","type":"买入","amount":1000,"shares":747.33,"nav":1.3381,"fee":0}]},"004937":{"name":"中航混改精选混合C","shortName":"中航混改精选","dividendType":"红利再投资","transactions":[{"date":"2026-05-15","type":"买入","amount":1000,"shares":1065.98,"nav":0.9381,"fee":0},{"date":"2026-05-27","type":"买入","amount":1000,"shares":1035.2,"nav":0.966,"fee":0},{"date":"2026-05-28","type":"买入","amount":1000,"shares":1032.95,"nav":0.9681,"fee":0}]},"024246":{"name":"广发科创人工智能ETF联接C","shortName":"广发科创AI","dividendType":"红利再投资","transactions":[{"date":"2026-05-27","type":"买入","amount":2000,"shares":1247.04,"nav":1.6038,"fee":0},{"date":"2026-06-05","type":"买入","amount":2000,"shares":1347.71,"nav":1.484,"fee":0}]},"001423":{"name":"景顺长城安享回报混合C","shortName":"景顺安享回报","dividendType":"红利再投资","transactions":[{"date":"2026-06-05","type":"买入","amount":20000,"shares":12626.26,"nav":1.584,"fee":0}]},"016020":{"name":"招商中证电池主题ETF联接C","shortName":"招商电池","dividendType":"红利再投资","transactions":[{"date":"2026-06-05","type":"买入","amount":2000,"shares":2205.31,"nav":0.9069,"fee":0}]}}};
-const EMBEDDED_NAV = {"013841":{"name":"银华集成电路混合C","gsz":2.572,"dwjz":2.5242,"gszzl":1.89,"gztime":"2026-06-10 09:44","jzrq":"2026-06-09"},"002164":{"name":"汇添富新睿精选混合C","gsz":1.6874,"dwjz":1.741,"gszzl":-3.08,"gztime":"2026-06-10 09:44","jzrq":"2026-06-09"},"012630":{"name":"广发国证半导体芯片ETF联接C","gsz":1.415,"dwjz":1.3913,"gszzl":1.7,"gztime":"2026-06-10 09:43","jzrq":"2026-06-09"},"004937":{"name":"中航混改精选混合C","gsz":0.9133,"dwjz":0.9286,"gszzl":-1.65,"gztime":"2026-06-10 09:44","jzrq":"2026-06-09"},"024246":{"name":"广发上证科创板人工智能ETF发起式联接C","gsz":1.4948,"dwjz":1.4862,"gszzl":0.58,"gztime":"2026-06-10 09:44","jzrq":"2026-06-09"},"001423":{"name":"景顺长城安享回报混合C","gsz":1.5816,"dwjz":1.584,"gszzl":-0.15,"gztime":"2026-06-10 09:44","jzrq":"2026-06-09"},"016020":{"name":"招商中证电池主题ETF联接C","gsz":0.8915,"dwjz":0.9054,"gszzl":-1.53,"gztime":"2026-06-10 09:44","jzrq":"2026-06-09"}};
+const EMBEDDED_FUND_DATA = {
+  "updated": "2026-06-10T15:00:00+08:00",
+  "funds": {
+    "013841": {
+      "name": "银华集成电路混合C",
+      "shortName": "银华集成电路",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-03-03",
+          "type": "买入",
+          "amount": 500,
+          "shares": 275.31,
+          "nav": 1.8161,
+          "fee": 0
+        },
+        {
+          "date": "2026-03-09",
+          "type": "买入",
+          "amount": 500,
+          "shares": 280.26,
+          "nav": 1.784,
+          "fee": 0
+        },
+        {
+          "date": "2026-03-19",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 583.6,
+          "nav": 1.7135,
+          "fee": 0
+        },
+        {
+          "date": "2026-06-10",
+          "type": "卖出",
+          "amount": 1011.12,
+          "shares": 400,
+          "nav": 2.5278,
+          "pending": true
+        }
+      ]
+    },
+    "002164": {
+      "name": "汇添富新睿精选灵活配置混合C",
+      "shortName": "汇添富新睿精选",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-03-19",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 655.74,
+          "nav": 1.525,
+          "fee": 0
+        },
+        {
+          "date": "2026-06-05",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 581.73,
+          "nav": 1.719,
+          "fee": 0
+        }
+      ]
+    },
+    "012630": {
+      "name": "广发半导体芯片ETF联接C",
+      "shortName": "广发半导体芯片",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-05-14",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 745.38,
+          "nav": 1.3416,
+          "fee": 0
+        },
+        {
+          "date": "2026-05-15",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 747.33,
+          "nav": 1.3381,
+          "fee": 0
+        }
+      ]
+    },
+    "004937": {
+      "name": "中航混改精选混合C",
+      "shortName": "中航混改精选",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-05-15",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 1065.98,
+          "nav": 0.9381,
+          "fee": 0
+        },
+        {
+          "date": "2026-05-27",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 1035.2,
+          "nav": 0.966,
+          "fee": 0
+        },
+        {
+          "date": "2026-05-28",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 1032.95,
+          "nav": 0.9681,
+          "fee": 0
+        }
+      ]
+    },
+    "024246": {
+      "name": "广发科创人工智能ETF联接C",
+      "shortName": "广发科创AI",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-05-27",
+          "type": "买入",
+          "amount": 2000,
+          "shares": 1247.04,
+          "nav": 1.6038,
+          "fee": 0
+        },
+        {
+          "date": "2026-06-05",
+          "type": "买入",
+          "amount": 2000,
+          "shares": 1347.71,
+          "nav": 1.484,
+          "fee": 0
+        }
+      ]
+    },
+    "001423": {
+      "name": "景顺长城安享回报混合C",
+      "shortName": "景顺安享回报",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-06-05",
+          "type": "买入",
+          "amount": 20000,
+          "shares": 12626.26,
+          "nav": 1.584,
+          "fee": 0
+        }
+      ]
+    },
+    "016020": {
+      "name": "招商中证电池主题ETF联接C",
+      "shortName": "招商电池",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-06-05",
+          "type": "买入",
+          "amount": 2000,
+          "shares": 2205.31,
+          "nav": 0.9069,
+          "fee": 0
+        },
+        {
+          "date": "2026-06-10",
+          "type": "买入",
+          "amount": 1000,
+          "shares": 1136.36,
+          "nav": 0.88,
+          "fee": 0,
+          "pending": true
+        }
+      ]
+    },
+    "016186": {
+      "name": "广发电力公用事业ETF联接C",
+      "shortName": "广发电力",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-06-10",
+          "type": "买入",
+          "amount": 2000,
+          "shares": 1708.23,
+          "nav": 1.1708,
+          "fee": 0,
+          "pending": true
+        }
+      ]
+    }
+  }
+};
+const EMBEDDED_NAV = {"013841":{"name":"银华集成电路混合C","gsz":2.5487,"dwjz":2.5242,"gszzl":0.97,"gztime":"2026-06-10 09:38","jzrq":"2026-06-09"},"002164":{"name":"汇添富新睿精选混合C","gsz":1.6893,"dwjz":1.741,"gszzl":-2.97,"gztime":"2026-06-10 09:38","jzrq":"2026-06-09"},"012630":{"name":"广发国证半导体芯片ETF联接C","gsz":1.407,"dwjz":1.3913,"gszzl":1.13,"gztime":"2026-06-10 09:38","jzrq":"2026-06-09"},"004937":{"name":"中航混改精选混合C","gsz":0.9205,"dwjz":0.9286,"gszzl":-0.87,"gztime":"2026-06-10 09:38","jzrq":"2026-06-09"},"024246":{"name":"广发上证科创板人工智能ETF发起式联接C","gsz":1.491,"dwjz":1.4862,"gszzl":0.32,"gztime":"2026-06-10 09:38","jzrq":"2026-06-09"},"001423":{"name":"景顺长城安享回报混合C","gsz":1.5818,"dwjz":1.584,"gszzl":-0.14,"gztime":"2026-06-10 09:38","jzrq":"2026-06-09"},"016020":{"name":"招商中证电池主题ETF联接C","gsz":0.895,"dwjz":0.9054,"gszzl":-1.15,"gztime":"2026-06-10 09:36","jzrq":"2026-06-09"}};
 
 // ============================================================
 // Fund Metadata — 行业分类和特征
@@ -1540,6 +1738,15 @@ const FUND_META = {
     riskLevel: "高",
     style: "ETF联接，被动跟踪中证电池主题指数",
     notes: "新能源赛道高波动，受政策及产业链景气度影响大"
+  },
+  "016186": {
+    sector: "电力公用事业",
+    sectorCN: "电力",
+    sectorBoardCode: "90.BK0428",
+    sectorBoardName: "电力",
+    riskLevel: "中高",
+    style: "ETF联接，被动跟踪中证电力公用事业指数",
+    notes: "电力板块防御性较强，受电价政策和公用事业改革影响"
   }
 };
 
@@ -1552,6 +1759,14 @@ function calcFund(code, nav) {
 
   f.transactions.forEach(t => {
     if (t.type.includes("卖出")) {
+      // 卖出：按当前平均成本减少份额和成本
+      const sellShares = t.shares || 0;
+      if (sellShares > 0 && totalShares > 0) {
+        const avgCost = totalCost / totalShares;
+        const sellCost = avgCost * sellShares;
+        totalShares -= sellShares;
+        totalCost -= sellCost;
+      }
       return;
     }
     // Pending buys: use estimated shares (amount/nav) if no confirmed shares yet
