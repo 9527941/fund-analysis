@@ -160,6 +160,33 @@ def update_report_history_raw():
     return _do_update_history_raw(REPORT_FILE)
 
 
+def fetch_latest_nav_from_history(code):
+    """从东方财富历史净值API获取最近一天的已确认净值（比JSONP更早发布）"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    # 取最近5天的历史净值，确保能拿到最新已确认的
+    start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    url = HISTORY_API.format(code=code, size=5, start=start, end=today)
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://fund.eastmoney.com/"
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+        data = json.loads(raw.decode("utf-8"))
+        items = data.get("Data", {}).get("LSJZList", [])
+        if items:
+            latest = items[0]  # 最新在前
+            return {
+                "dwjz": float(latest["DWJZ"]),
+                "jzrq": latest["FSRQ"],
+                "ljjz": float(latest.get("LJJZ", latest["DWJZ"]))
+            }
+    except Exception as e:
+        print(f"  [WARN] {code}: history NAV fetch failed: {e}")
+    return None
+
+
 def main():
     # 1. 更新 fund-nav.json（实时净值缓存）
     try:
@@ -178,9 +205,28 @@ def main():
         print(f"  Fetching {code}...", end=" ")
         data = fetch_nav(code)
         if data:
+            # 检查JSONP返回的jzrq是否是今天或昨天（工作日）
+            # 如果不是，尝试从history API获取更新的已确认净值
+            jzrq = data.get("jzrq", "")
+            jsonp_date = datetime.strptime(jzrq, "%Y-%m-%d") if jzrq else None
+            today_dt = datetime.now()
+
+            # 如果JSONP的jzrq距离今天超过1个工作日，说明净值还没更新到最新
+            # history API通常比JSONP更早发布当天净值
+            if jsonp_date and (today_dt - jsonp_date).days > 1:
+                print(f"jzrq={jzrq} stale, checking history...", end=" ")
+                hist = fetch_latest_nav_from_history(code)
+                if hist and hist["jzrq"] > jzrq:
+                    data["dwjz"] = hist["dwjz"]
+                    data["jzrq"] = hist["jzrq"]
+                    print(f"upgraded to jzrq={hist['jzrq']} dwjz={hist['dwjz']}")
+                else:
+                    print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
+            else:
+                print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
+
             funds[code] = data
             updated_count += 1
-            print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
         else:
             print("FAILED (keeping cached data)")
 
