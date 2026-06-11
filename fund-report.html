@@ -1230,8 +1230,8 @@
           <th>当日涨跌</th>
           <th>持有份额</th>
           <th>持仓成本</th>
-          <th>成本均价</th>
           <th>持有收益</th>
+          <th>成本均价</th>
           <th>收益率</th>
           <th>关联板块</th>
         </tr>
@@ -2750,8 +2750,8 @@ function buildHoldingsTable(codes, navResults, sectorData) {
       <td class="change-cell ${changeClass}">${changeDisplay}</td>
       <td>${calc.totalShares.toFixed(2)} 份</td>
       <td>¥${calc.totalCost.toFixed(2)}</td>
-      <td>${calc.avgCost.toFixed(4)}</td>
       <td class="pnl-cell ${upDownClass(calc.pnl)}">${formatMoney(calc.pnl)}</td>
+      <td>${calc.avgCost.toFixed(4)}</td>
       <td class="pnl-cell ${upDownClass(calc.pnlRate)}">${formatRate(calc.pnlRate)}</td>
       <td>${sectorHtml}</td>
     </tr>`;
@@ -2764,8 +2764,8 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     <td>--</td>
     <td>--</td>
     <td>--</td>
-    <td>--</td>
     <td class="pnl-cell ${upDownClass(totalPnl)}"><strong>${formatMoney(totalPnl)}</strong></td>
+    <td>--</td>
     <td class="pnl-cell ${upDownClass(totalRate)}"><strong>${formatRate(totalRate)}</strong></td>
     <td>共 ${codes.length} 只基金</td>
     <td><strong>${formatMoney(totalInvest)}</strong></td>
