@@ -1229,7 +1229,8 @@
           <th>最新净值<br><small>(确认)</small></th>
           <th>当日涨跌</th>
           <th>持有份额</th>
-          <th>持仓成本</th>
+          <th>持仓金额</th>
+          <th>成本均价</th>
           <th>持有收益</th>
           <th>收益率</th>
           <th>关联板块</th>
@@ -2743,11 +2744,12 @@ function buildHoldingsTable(codes, navResults, sectorData) {
       <td class="fund-name-cell">
         <span class="fund-name-title">${f.name}</span>
         <span class="fund-code-text">${code}</span>
-        <span class="fund-total-amount">总额 ¥${calc.totalCost.toFixed(2)}</span>
+        <span class="fund-total-amount">市值 ¥${calc.currentValue.toFixed(2)}</span>
       </td>
       <td><span class="nav-confirmed">${dwjz.toFixed(4)}</span><span class="nav-date">${jzrq}</span></td>
       <td class="change-cell ${changeClass}">${changeDisplay}</td>
       <td>${calc.totalShares.toFixed(2)} 份</td>
+      <td>¥${calc.totalCost.toFixed(2)}</td>
       <td>${calc.avgCost.toFixed(4)}</td>
       <td class="pnl-cell ${upDownClass(calc.pnl)}">${formatMoney(calc.pnl)}</td>
       <td class="pnl-cell ${upDownClass(calc.pnlRate)}">${formatRate(calc.pnlRate)}</td>
@@ -2755,7 +2757,7 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     </tr>`;
   });
 
-  // Total row (8 cols)
+  // Total row (9 cols)
   const totalRate = totalInvest > 0 ? (totalPnl / totalInvest) * 100 : 0;
   rows += `<tr class="total-row">
     <td class="fund-name-cell"><span class="fund-name-title">合计</span></td>
@@ -2766,6 +2768,7 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     <td class="pnl-cell ${upDownClass(totalPnl)}"><strong>${formatMoney(totalPnl)}</strong></td>
     <td class="pnl-cell ${upDownClass(totalRate)}"><strong>${formatRate(totalRate)}</strong></td>
     <td>共 ${codes.length} 只基金</td>
+    <td><strong>${formatMoney(totalInvest)}</strong></td>
   </tr>`;
 
   document.getElementById("holdingsTbody").innerHTML = rows;
