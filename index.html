@@ -960,6 +960,12 @@
     color: #999;
     display: block;
   }
+  .holdings-table .fund-total-amount {
+    font-size: 0.65rem;
+    color: #888;
+    display: block;
+    margin-top: 1px;
+  }
   .holdings-table .nav-confirmed {
     font-weight: 600;
   }
@@ -2531,6 +2537,7 @@ function buildHoldingsTable(codes, navResults, sectorData) {
       <td class="fund-name-cell">
         <span class="fund-name-title">${f.name}</span>
         <span class="fund-code-text">${code}</span>
+        <span class="fund-total-amount">总额 ¥${calc.totalCost.toFixed(2)}</span>
       </td>
       <td><span class="nav-confirmed">${dwjz.toFixed(4)}</span><span class="nav-date">${jzrq}</span></td>
       <td class="change-cell ${changeClass}">${changeDisplay}</td>
