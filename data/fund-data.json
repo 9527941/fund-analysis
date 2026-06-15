@@ -47,7 +47,7 @@
       "transactions": [
         { "date": "2026-05-27", "type": "买入", "amount": 2000.0, "shares": 1247.04, "nav": 1.6038, "fee": 0 },
         { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 1347.71, "nav": 1.484, "fee": 0 },
-        { "date": "2026-06-11", "type": "买入", "amount": 1000.0, "shares": 713.67, "nav": 1.4012, "fee": 0, "pending": true }
+        { "date": "2026-06-11", "type": "买入", "amount": 1000.0, "shares": 708.11, "nav": 1.4122, "fee": 0 }
       ]
     },
     "001423": {
@@ -64,7 +64,7 @@
       "dividendType": "红利再投资",
       "transactions": [
         { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 2205.31, "nav": 0.9069, "fee": 0 },
-        { "date": "2026-06-10", "type": "买入", "amount": 1000.0, "shares": 1136.36, "nav": 0.8800, "fee": 0, "pending": true }
+        { "date": "2026-06-10", "type": "买入", "amount": 1000.0, "shares": 1134.81, "nav": 0.8812, "fee": 0 }
       ]
     },
     "016186": {
@@ -72,7 +72,7 @@
       "shortName": "广发电力",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-06-10", "type": "买入", "amount": 2000.0, "shares": 1708.23, "nav": 1.1708, "fee": 0, "pending": true }
+        { "date": "2026-06-10", "type": "买入", "amount": 2000.0, "shares": 1706.48, "nav": 1.1720, "fee": 0 }
       ]
     }
   }
