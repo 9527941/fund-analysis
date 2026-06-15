@@ -347,6 +347,16 @@
   .table-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    position: relative;
+  }
+  .table-scroll::after {
+    content: '';
+    position: sticky;
+    right: 0; top: 0; bottom: 0;
+    width: 20px;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.06));
+    pointer-events: none;
+    z-index: 2;
   }
 
   /* ============================================================
@@ -927,6 +937,7 @@
   }
   .holdings-table {
     width: 100%;
+    min-width: 680px;
     border-collapse: collapse;
     font-size: 0.78rem;
   }
