@@ -1,13 +1,23 @@
 name: Update Fund NAV
 on:
   schedule:
-    - cron: '0 13 * * 1-5'
-    - cron: '0 14 * * 1-5'
-    - cron: '0 15 * * 1-5'
-    - cron: '0 22 * * 0,2-6'
-    - cron: '0 23 * * 0,2-6'
-    - cron: '0 0 * * 1-6'
-    - cron: '0 1 * * 1-6'
+    # === Evening runs (Beijing 21:00 - 01:00+1) ===
+    # Coverage for NAV publishing window (typically 18:00-24:00 BJ)
+    - cron: '0 13 * * 1-5'     # Beijing 21:00 Mon-Fri
+    - cron: '0 14 * * 1-5'     # Beijing 22:00 Mon-Fri
+    - cron: '0 15 * * 1-5'     # Beijing 23:00 Mon-Fri
+    - cron: '0 16 * * 1-5'     # Beijing 00:00 Tue-Sat (late night)
+    - cron: '0 17 * * 1-5'     # Beijing 01:00 Tue-Sat (early morning)
+    # === Morning pre-market runs ===
+    - cron: '0 22 * * 0,2-6'   # Beijing 06:00 Mon+Tue-Sat
+    - cron: '0 23 * * 0,2-6'   # Beijing 07:00 Mon+Tue-Sat
+    - cron: '0 0 * * 1-6'      # Beijing 08:00 Mon-Sat
+    - cron: '0 1 * * 1-6'      # Beijing 09:00 Mon-Sat
+    # === Post-market-open runs (KEY FIX: after 09:30 when JSONP updates jzrq) ===
+    - cron: '0 2 * * 2-6'      # Beijing 10:00 Tue-Sat
+    - cron: '30 2 * * 2-6'     # Beijing 10:30 Tue-Sat
+    - cron: '0 3 * * 2-6'      # Beijing 11:00 Tue-Sat
+    - cron: '30 3 * * 2-6'     # Beijing 11:30 Tue-Sat
   workflow_dispatch:
   push:
     paths:
@@ -22,8 +32,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python .github/workflows/fetch_nav.py
-      - run: |
+      - name: Check and Update NAV
+        id: nav_update
+        run: python .github/workflows/fetch_nav.py
+      - name: Commit and Push
+        run: |
           git config user.name "fund-bot"
           git config user.email "fund-bot[bot]@users.noreply.github.com"
           git add data/fund-nav.json index.html fund-report.html
