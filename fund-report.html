@@ -3307,8 +3307,7 @@ async function render() {
   // Update time
   const sampleNav = navResults[codes[0]];
   if (sampleNav) {
-    document.getElementById("reportDate").textContent +=
-      " · 净值时间: " + sampleNav.gztime;
+    document.getElementById("reportDate").textContent += " · 净值日期: " + sampleNav.jzrq + (sampleNav.gztime && sampleNav.gztime.split(" ")[0] !== sampleNav.jzrq ? " · 估值: " + sampleNav.gztime : "");
   }
 }
 
