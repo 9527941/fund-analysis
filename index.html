@@ -2603,14 +2603,17 @@ function initSingleFundSelect(codes) {
 function switchTimeRange(range) {
   currentTimeRange = range;
   // Update active button
+  const labels = { "1m": "近1月", "3m": "近3月", "6m": "近6月", "1y": "近1年", "3y": "近3年" };
   document.querySelectorAll(".time-range-btn").forEach(b => {
-    b.classList.remove("active");
-    if (b.textContent.includes({ "1m": "近1月", "3m": "近3月", "6m": "近6月", "1y": "近1年", "3y": "近3年" }[range])) {
-      b.classList.add("active");
-    }
+    b.classList.toggle("active", b.textContent.trim() === labels[range]);
   });
   if (currentSingleFundCode) {
     buildFundPerformanceChart(currentSingleFundCode, range);
+    // Also update performance summary cards with correct range
+    const history = HISTORY_RAW.funds[currentSingleFundCode];
+    if (history) {
+      document.getElementById("perfSummary").innerHTML = buildPerfSummary(history, range);
+    }
   }
 }
 
@@ -2637,7 +2640,7 @@ function populateSingleFund() {
 
   // Performance summary cards
   const history = HISTORY_RAW.funds[code] || [];
-  const perfCards = buildPerfSummary(history);
+  const perfCards = buildPerfSummary(history, currentTimeRange);
   document.getElementById("perfSummary").innerHTML = perfCards;
 
   // Costs / transactions
@@ -2718,7 +2721,7 @@ function populateSingleFund() {
   detail.classList.add("show");
 }
 
-function buildPerfSummary(history) {
+function buildPerfSummary(history, activeRange) {
   if (!history || history.length < 5) return '';
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1];
@@ -2743,20 +2746,24 @@ function buildPerfSummary(history) {
     return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
   };
 
+  const isActive = (key) => activeRange === key ? ' active' : '';
+
   return `
-    <div class="perf-card"><div class="perf-label">近1月收益</div><div class="perf-value ${m1>=0?'up':'down'}">${fmtR(m1)}</div></div>
-    <div class="perf-card"><div class="perf-label">近3月收益</div><div class="perf-value ${m3>=0?'up':'down'}">${fmtR(m3)}</div></div>
-    <div class="perf-card"><div class="perf-label">近6月收益</div><div class="perf-value ${m6>=0?'up':'down'}">${fmtR(m6)}</div></div>
-    <div class="perf-card"><div class="perf-label">近1年收益</div><div class="perf-value ${y1>=0?'up':'down'}">${fmtR(y1)}</div></div>`;
+    <div class="perf-card${isActive('1m')}" onclick="switchTimeRange('1m')"><div class="perf-label">近1月收益</div><div class="perf-value ${m1>=0?'up':'down'}">${fmtR(m1)}</div></div>
+    <div class="perf-card${isActive('3m')}" onclick="switchTimeRange('3m')"><div class="perf-label">近3月收益</div><div class="perf-value ${m3>=0?'up':'down'}">${fmtR(m3)}</div></div>
+    <div class="perf-card${isActive('6m')}" onclick="switchTimeRange('6m')"><div class="perf-label">近6月收益</div><div class="perf-value ${m6>=0?'up':'down'}">${fmtR(m6)}</div></div>
+    <div class="perf-card${isActive('1y')}" onclick="switchTimeRange('1y')"><div class="perf-label">近1年收益</div><div class="perf-value ${y1>=0?'up':'down'}">${fmtR(y1)}</div></div>`;
 }
 
 function buildFundPerformanceChart(code, range) {
   const history = HISTORY_RAW.funds[code];
   const ctx = document.getElementById("singleFundChart").getContext("2d");
-  if (singleFundChart) singleFundChart.destroy();
+  // Safely destroy old chart and clear canvas
+  try { if (singleFundChart) { singleFundChart.destroy(); singleFundChart = null; } } catch(e) {}
+  try { ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); } catch(e) {}
 
   if (!history || history.length < 2) {
-    singleFundChart = new Chart(ctx, { type: "line", data: { labels: [], datasets: [] } });
+    singleFundChart = new Chart(ctx, { type: "line", data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: true } });
     return;
   }
 
@@ -3015,26 +3022,79 @@ function buildCrossChannel(codes, navResults) {
 
   const items = [];
 
-  // Idea 1: Based on current market sentiment
-  const dayChanges = Object.values(navResults).filter(n => n).map(n => n.gszzl);
+  // ====== 1. 市场情绪分析（基于实时涨跌数据） ======
+  const dayChanges = Object.values(navResults).filter(n => n && n.gszzl !== undefined).map(n => n.gszzl);
   const avgChange = dayChanges.length > 0 ? dayChanges.reduce((a, b) => a + b, 0) / dayChanges.length : 0;
+  const upCount = dayChanges.filter(v => v > 0).length;
+  const downCount = dayChanges.filter(v => v < 0).length;
 
-  if (avgChange > 1) {
-    items.push({ tag: "hot", tagText: "市场偏暖", title: "市场整体偏暖，注意追高风险", desc: "今日组合平均涨幅较大，短期追高需谨慎。可以考虑等待回调再追加仓位。" });
-  } else if (avgChange < -1) {
-    items.push({ tag: "watch", tagText: "关注机会", title: "市场回调中，关注逢低布局", desc: "今日组合整体下跌，如果持仓逻辑不变，回调可能是加仓的好时机。" });
+  if (avgChange > 2) {
+    items.push({ tag: "hot", tagText: "强势上涨", title: "市场整体大幅上涨，注意追高风险", desc: "今日组合平均涨幅 " + avgChange.toFixed(1) + "%（" + upCount + "涨" + downCount + "跌），短期追高需谨慎。可以考虑等待回调再追加仓位。" });
+  } else if (avgChange > 0.5) {
+    items.push({ tag: "info", tagText: "温和上涨", title: "市场温和上涨，趋势向好", desc: "今日组合平均涨幅 " + avgChange.toFixed(1) + "%（" + upCount + "涨" + downCount + "跌），市场情绪偏暖，可保持现有仓位。" });
+  } else if (avgChange < -2) {
+    items.push({ tag: "watch", tagText: "关注机会", title: "市场大幅回调，关注逢低布局", desc: "今日组合平均下跌 " + Math.abs(avgChange).toFixed(1) + "%（" + upCount + "涨" + downCount + "跌），如果持仓逻辑不变，回调可能是加仓的好时机。" });
+  } else if (avgChange < -0.5) {
+    items.push({ tag: "info", tagText: "小幅回调", title: "市场小幅回调，无需过度担忧", desc: "今日组合平均下跌 " + Math.abs(avgChange).toFixed(1) + "%，属于正常波动范围。继续持有观察。" });
+  } else {
+    items.push({ tag: "info", tagText: "市场平稳", title: "市场窄幅震荡，等待方向选择", desc: "今日涨跌幅度不大（" + upCount + "涨" + downCount + "跌），市场处于观望期。可关注后期政策面和资金面变化。" });
   }
 
-  // Idea 2: Sector rotation
-  items.push({ tag: "info", tagText: "赛道观察", title: "保持对AI和半导体的主线关注", desc: "你持有的AI和半导体是当前市场核心主线。关注政策面和产业动态，这两个赛道的长期逻辑依然坚实。" });
+  // ====== 2. 基金表现排名（当日涨跌排序） ======
+  const ranked = Object.entries(navResults)
+    .filter(([_, n]) => n && n.gszzl !== undefined)
+    .sort((a, b) => (b[1].gszzl || 0) - (a[1].gszzl || 0));
+  
+  if (ranked.length >= 3) {
+    const top = ranked[0];
+    const bottom = ranked[ranked.length - 1];
+    const topName = FUND_DATA[top[0]].name.split(' ')[0];
+    const bottomName = FUND_DATA[bottom[0]].name.split(' ')[0];
+    items.push({ tag: "watch", tagText: "强弱分化", title: "今日最强：" + topName + "（" + formatRate(top[1].gszzl || 0) + "），最弱：" + bottomName + "（" + formatRate(bottom[1].gszzl || 0) + "）", desc: "板块轮动明显，关注弱势板块是否有补涨机会，或考虑调整持仓权重。" });
+  }
 
-  // Idea 3: Cash management
-  items.push({ tag: "info", tagText: "资金管理", title: "闲置资金可考虑货币基金或短债", desc: "等待布局机会的闲置资金，可以放在货币基金或短债基金中，年化约1.5-2.5%，流动性好且风险低。" });
+  // ====== 3. 持仓盈亏诊断 ======
+  const pnlItems = Object.entries(fundCalcs)
+    .filter(([_, c]) => c.pnl !== undefined)
+    .sort((a, b) => a[1].pnl - b[1].pnl);
+  
+  const losers = pnlItems.filter(([_, c]) => c.pnl < 0);
+  const winners = pnlItems.filter(([_, c]) => c.pnl > 0);
+  
+  if (losers.length > 0 && losers.length >= winners.length) {
+    const worstLoser = losers[0];
+    const wName = FUND_DATA[worstLoser[0]].name.split(' ')[0];
+    items.push({ tag: "hot", tagText: "持仓诊断", title: "亏损基金占比偏高，关注 " + wName, desc: losers.length + " 只基金浮亏中，最大亏损来自 " + wName + "（" + formatMoney(worstLoser[1].pnl) + "）。评估是否需要止损或定投摊低成本。" });
+  } else if (winners.length > losers.length && losers.length > 0) {
+    items.push({ tag: "info", tagText: "持仓诊断", title: winners.length + "盈" + losers.length + "亏，组合整体健康", desc: "多数基金盈利，少数浮亏属于正常波动。可考虑用盈利基金的收益补仓亏损基金以优化持仓成本。" });
+  }
 
-  // Idea 4: based on portfolio
-  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c].sectorCN === "半导体");
-  if (semiCodes.length >= 2) {
-    items.push({ tag: "watch", tagText: "优化建议", title: "两只半导体基金可考虑整合", desc: `你持有 ${semiCodes.length} 只半导体基金（${semiCodes.map(c => FUND_DATA[c].name.split(' ')[0]).join('、')}），可考虑集中到表现更好的一只以简化管理。` });
+  // ====== 4. 赛道观察（基于持仓分布） ======
+  const sectorCodes = { "半导体": [], "AI": [], "新能源": [], "电力": [], "国企改革": [], "稳健型": [] };
+  Object.keys(FUND_DATA).forEach(code => {
+    const meta = FUND_META[code];
+    if (!meta) return;
+    const scn = meta.sectorCN || meta.sector;
+    for (const key of Object.keys(sectorCodes)) {
+      if (scn && scn.includes(key)) { sectorCodes[key].push(code); break; }
+    }
+  });
+  
+  const aiSemi = (sectorCodes["AI"] || []).concat(sectorCodes["半导体"] || []);
+  if (aiSemi.length >= 2) {
+    items.push({ tag: "info", tagText: "赛道观察", title: "AI+半导体占持仓主要仓位（" + aiSemi.length + "只），关注科技主线", desc: "你持有的AI和半导体是当前市场核心主线。关注美国芯片政策、国产替代进展和AI应用落地。这两个赛道的长期逻辑依然坚实。" });
+  }
+
+  if (sectorCodes["电力"] && sectorCodes["电力"].length > 0) {
+    items.push({ tag: "info", tagText: "防御配置", title: "电力板块提供组合防御性", desc: "电力公用事业属于低波动防御板块，在市场震荡时起到缓冲作用。当前持仓中包含电力ETF，有助于降低组合整体波动。" });
+  }
+
+  // ====== 5. 资金管理建议 ======
+  items.push({ tag: "info", tagText: "资金管理", title: "闲置资金可考虑货币基金或短债", desc: "等待布局机会的闲置资金，可以放在货币基金或短债基金中，年化约1.5-2.5%，流动性好且风险低。当前建议保持部分现金仓位应对市场波动。" });
+
+  // ====== 6. 动态优化建议 ======
+  if (sectorCodes["半导体"] && sectorCodes["半导体"].length >= 2) {
+    items.push({ tag: "watch", tagText: "优化建议", title: "两只半导体基金可考虑整合", desc: "你持有 " + sectorCodes["半导体"].length + " 只半导体基金（" + sectorCodes["半导体"].map(c => FUND_DATA[c].name.split(' ')[0]).join('、') + "），可考虑集中到表现更好的一只以简化管理。" });
   }
 
   let html = "";
@@ -3049,7 +3109,6 @@ function buildCrossChannel(codes, navResults) {
   });
   document.getElementById("crossChannelContent").innerHTML = html;
 }
-
 // ============================================================
 // Init
 // ============================================================
