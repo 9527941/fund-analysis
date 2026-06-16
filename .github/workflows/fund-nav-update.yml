@@ -1,19 +1,34 @@
 name: Update Fund NAV
 on:
   schedule:
-    # === Evening runs (Beijing 21:00 - 01:00+1) ===
-    # Coverage for NAV publishing window (typically 18:00-24:00 BJ)
-    - cron: '0 13 * * 1-5'     # Beijing 21:00 Mon-Fri
-    - cron: '0 14 * * 1-5'     # Beijing 22:00 Mon-Fri
-    - cron: '0 15 * * 1-5'     # Beijing 23:00 Mon-Fri
-    - cron: '0 16 * * 1-5'     # Beijing 00:00 Tue-Sat (late night)
-    - cron: '0 17 * * 1-5'     # Beijing 01:00 Tue-Sat (early morning)
-    # === Morning pre-market runs ===
+    # ============================================================
+    # Evening window (Beijing 21:00 - 01:00+1, Mon-Fri)
+    # High frequency: every 20-30 min to catch each fund's NAV
+    # as soon as it's published (fund companies publish at different times)
+    # ============================================================
+    - cron: '0 13 * * 1-5'     # Beijing 21:00
+    - cron: '20 13 * * 1-5'    # Beijing 21:20
+    - cron: '40 13 * * 1-5'    # Beijing 21:40
+    - cron: '0 14 * * 1-5'     # Beijing 22:00
+    - cron: '20 14 * * 1-5'    # Beijing 22:20
+    - cron: '40 14 * * 1-5'    # Beijing 22:40
+    - cron: '0 15 * * 1-5'     # Beijing 23:00
+    - cron: '20 15 * * 1-5'    # Beijing 23:20
+    - cron: '40 15 * * 1-5'    # Beijing 23:40
+    - cron: '0 16 * * 1-5'     # Beijing 00:00 Tue-Sat
+    - cron: '20 16 * * 1-5'    # Beijing 00:20 Tue-Sat
+    - cron: '40 16 * * 1-5'    # Beijing 00:40 Tue-Sat
+    # ============================================================
+    # Morning fallback window (Beijing 06:00 - 09:00)
+    # ============================================================
     - cron: '0 22 * * 0,2-6'   # Beijing 06:00 Mon+Tue-Sat
     - cron: '0 23 * * 0,2-6'   # Beijing 07:00 Mon+Tue-Sat
     - cron: '0 0 * * 1-6'      # Beijing 08:00 Mon-Sat
     - cron: '0 1 * * 1-6'      # Beijing 09:00 Mon-Sat
-    # === Post-market-open runs (KEY FIX: after 09:30 when JSONP updates jzrq) ===
+    # ============================================================
+    # Post-market-open window (Beijing 10:00 - 11:30, Tue-Sat)
+    # KEY: after 09:30 when JSONP updates jzrq for live estimates
+    # ============================================================
     - cron: '0 2 * * 2-6'      # Beijing 10:00 Tue-Sat
     - cron: '30 2 * * 2-6'     # Beijing 10:30 Tue-Sat
     - cron: '0 3 * * 2-6'      # Beijing 11:00 Tue-Sat
@@ -33,7 +48,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Check and Update NAV
-        id: nav_update
         run: python .github/workflows/fetch_nav.py
       - name: Commit and Push
         run: |
