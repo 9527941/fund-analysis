@@ -2583,6 +2583,73 @@ function buildHoldingsTable(codes, navResults, sectorData) {
   </tr>`;
 
   document.getElementById("holdingsTbody").innerHTML = rows;
+
+// Per-fund incremental NAV update — updates one fund row immediately
+let sectorDataLive = null;
+
+function updateFundRow(code, nav, sectorData) {
+  if (!nav) return;
+  const f = FUND_DATA[code];
+  const meta = FUND_META[code];
+  if (!f || !meta) return;
+  
+  if (sectorData) sectorDataLive = sectorData;
+  
+  const dwjz = nav.dwjz || 0;
+  const jzrq = nav.jzrq || "--";
+  const gszzl = nav.gszzl || 0;
+  const useNav = nav.dwjz || nav.gsz || 0;
+  const calc = calcFund(code, useNav);
+  
+  const hasChange = (gszzl !== null && gszzl !== undefined && gszzl !== 0);
+  const changeDisplay = hasChange ? formatRate(gszzl) : "--";
+  const changeClass = hasChange ? upDownClass(gszzl) : "";
+  
+  let sectorHtml = "";
+  const sBoard = (sectorDataLive && sectorDataLive[meta.sectorBoardCode]) || null;
+  const sc = { "半导体材料设备": "#fde8e8", "国证半导体芯片": "#fde8e8", "科创人工智能": "#f3e8ff", "有色金属": "#dbeafe", "电网设备": "#e8f5e9" };
+  const st = { "半导体材料设备": "#c0392b", "国证半导体芯片": "#c0392b", "科创人工智能": "#7c3aed", "有色金属": "#1e40af", "电网设备": "#166534" };
+  if (sBoard && sBoard.changeRate !== null) {
+    const sCh = sBoard.changeRate, sCls = sCh >= 0 ? "up" : "down", sSign = sCh >= 0 ? "+" : "";
+    sectorHtml = '<span class="sector-change ' + sCls + '">' + sSign + sCh.toFixed(2) + '%</span><span class="sector-tag" style="background:' + (sc[meta.sector]||"#f0f0f0") + ';color:' + (st[meta.sector]||"#666") + '">' + meta.sector + '</span><span class="sector-risk">' + meta.riskLevel + '风险</span>';
+  } else {
+    sectorHtml = '<span class="sector-change">--</span><span class="sector-tag" style="background:' + (sc[meta.sector]||"#f0f0f0") + ';color:' + (st[meta.sector]||"#666") + '">' + meta.sector + '</span><span class="sector-risk">' + meta.riskLevel + '风险</span>';
+  }
+  
+  const newRow = '<tr id="fund-row-' + code + '"><td class="fund-name-cell"><span class="fund-name-title">' + f.name + '</span><span class="fund-code-text">' + code + '</span><span class="fund-total-amount">市值 ¥' + calc.currentValue.toFixed(2) + '</span></td><td><span class="nav-confirmed">' + dwjz.toFixed(4) + '</span><span class="nav-date">' + jzrq + '</span></td><td class="change-cell ' + changeClass + '">' + changeDisplay + '</td><td>' + sectorHtml + '</td><td class="pnl-cell"><div class="' + upDownClass(calc.pnl) + '">' + formatMoney(calc.pnl) + '</div><div class="pnl-rate ' + upDownClass(calc.pnlRate) + '">' + formatRate(calc.pnlRate) + '</div></td><td>' + calc.avgCost.toFixed(4) + '</td><td>' + calc.totalShares.toFixed(2) + ' 份</td><td>¥' + calc.totalCost.toFixed(2) + '</td></tr>';
+  
+  const oldRow = document.getElementById("fund-row-" + code);
+  if (oldRow) {
+    oldRow.outerHTML = newRow;
+  } else {
+    const tbody = document.getElementById("holdingsTbody");
+    const totalRow = tbody.querySelector(".total-row");
+    if (totalRow) {
+      totalRow.insertAdjacentHTML("beforebegin", newRow);
+    } else {
+      tbody.insertAdjacentHTML("beforeend", newRow);
+    }
+  }
+}
+
+// Recalculate summary row after all NAVs are loaded
+function updateSummaryRow() {
+  let ti = 0, tv = 0, tp = 0;
+  Object.keys(FUND_DATA).forEach(code => {
+    const nav = lastNavResults[code];
+    if (!nav) return;
+    const calc = calcFund(code, nav.dwjz || nav.gsz || 0);
+    ti += calc.totalCost; tv += calc.currentValue; tp += calc.pnl;
+  });
+  document.getElementById("totalInvest").textContent = formatMoney(ti);
+  document.getElementById("totalValue").textContent = formatMoney(tv);
+  const te = document.getElementById("totalPnl");
+  te.textContent = formatMoney(tp);
+  te.className = "value " + upDownClass(tp);
+  const tr = ti > 0 ? (tp / ti) * 100 : 0;
+  document.getElementById("totalPnlRate").textContent = "收益率 " + formatRate(tr);
+}
+
 }
 
 // ============================================================
@@ -3159,9 +3226,7 @@ async function render() {
   
   // Step 1: Build skeleton table with cached NAV data (so user sees something immediately)
   document.getElementById("navStatus").textContent = "正在加载净值缓存...";
-  buildHoldingsTable(codes, lastNavResults, null);
-
-  // Step 2: Fetch live NAVs ONE BY ONE, update each fund row immediately
+  // Step 2: Fetch live NAVs one by one — each fund shows as soon as ready
   // (Sequential because 天天基金 JSONP uses fixed callback name 'jsonpgz')
   document.getElementById("navStatus").textContent = "正在获取实时净值...";
   let fetchedCount = 0;
@@ -3170,8 +3235,7 @@ async function render() {
     navResults[code] = nav;
     if (nav) {
       fetchedCount++;
-      updateFundRow(code, nav);
-      lastNavResults[code] = nav; // Update immediately for subsequent funds
+      lastNavResults[code] = nav; // Stored for subsequent funds
     }
     document.getElementById("navStatus").textContent = 
       "正在获取实时净值... (" + fetchedCount + "/" + codes.length + ")";
@@ -3252,8 +3316,8 @@ async function refreshAll() {
     navResults[code] = nav;
     if (nav) {
       fetchedCount++;
-      updateFundRow(code, nav);
       lastNavResults[code] = nav;
+      updateFundRow(code, nav);
     }
     document.getElementById("navStatus").textContent = 
       "正在刷新净值... (" + fetchedCount + "/" + codes.length + ")";
