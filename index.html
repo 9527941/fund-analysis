@@ -1769,8 +1769,8 @@ function buildRealizedPnLTable() {
     const fund = data.funds[code];
     fund.sellRecords.forEach((rec, idx) => {
       const pendingTag = rec.pending ? ' <span style="color:#f39c12;font-size:0.62rem">待确认</span>' : '';
-      rows += `<tr>
-        <td class="fund-name-cell">
+      rows += `<tr id="fund-row-${code}">
+      <td class="fund-name-cell">
           ${idx === 0 ? `<span class="fund-name-title">${fund.shortName}</span><span class="fund-code-text">${code}</span>` : ''}
         </td>
         <td>${rec.date}${pendingTag}</td>
@@ -2547,7 +2547,7 @@ function buildHoldingsTable(codes, navResults, sectorData) {
         <span class="sector-risk">${meta.riskLevel}风险</span>`;
     }
 
-    rows += `<tr>
+    rows += `<tr id="fund-row-${code}">
       <td class="fund-name-cell">
         <span class="fund-name-title">${f.name}</span>
         <span class="fund-code-text">${code}</span>
@@ -3156,20 +3156,36 @@ async function render() {
 
   const codes = Object.keys(FUND_DATA);
   const navResults = {};
-  // IMPORTANT: Sequential fetch — 天天基金JSONP固定用jsonpgz回调名，并发会导致回调覆盖、数据串号
+  
+  // Step 1: Build skeleton table with cached NAV data (so user sees something immediately)
+  document.getElementById("navStatus").textContent = "正在加载净值缓存...";
+  buildHoldingsTable(codes, lastNavResults, null);
+
+  // Step 2: Fetch live NAVs ONE BY ONE, update each fund row immediately
+  // (Sequential because 天天基金 JSONP uses fixed callback name 'jsonpgz')
+  document.getElementById("navStatus").textContent = "正在获取实时净值...";
+  let fetchedCount = 0;
   for (const code of codes) {
-    navResults[code] = await fetchNav(code);
+    const nav = await fetchNav(code);
+    navResults[code] = nav;
+    if (nav) {
+      fetchedCount++;
+      updateFundRow(code, nav);
+      lastNavResults[code] = nav; // Update immediately for subsequent funds
+    }
+    document.getElementById("navStatus").textContent = 
+      "正在获取实时净值... (" + fetchedCount + "/" + codes.length + ")";
   }
 
   lastNavResults = navResults;
 
   document.getElementById("navStatus").innerHTML =
-    '<span class="live-dot"></span>实时净值已就绪 [v20260529-18]（可随时刷新）';
+    '<span class="live-dot"></span>实时净值已就绪 [v20260616] · 逐只更新（可随时刷新）';
 
   // --- Fetch sector board data ---
   const sectorData = await fetchSectorBoards();
-
-  // --- Holdings Overview Table ---
+  
+  // Re-render table with sector data
   buildHoldingsTable(codes, navResults, sectorData);
 
   // --- Realized P&L Table ---
@@ -3178,14 +3194,13 @@ async function render() {
   // --- Quick Glance ---
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, navResults);
 
-  // Calculate portfolio totals (analysis now integrated in single fund module)
+  // Calculate portfolio totals
   let totalInvest = 0, totalValue = 0, totalPnl = 0;
   const fundCalcs = {};
 
   codes.forEach(code => {
     const nav = navResults[code];
     if (!nav) return;
-    // Use confirmed NAV (dwjz) for consistent calculation
     const useNav = nav.dwjz || nav.gsz || 0;
     const calc = calcFund(code, useNav);
     fundCalcs[code] = calc;
@@ -3229,17 +3244,27 @@ async function refreshAll() {
   document.getElementById("navStatus").textContent = "正在刷新净值...";
   const codes = Object.keys(FUND_DATA);
   const navResults = {};
-  // IMPORTANT: Sequential fetch — 天天基金JSONP固定用jsonpgz回调名，并发会导致回调覆盖、数据串号
+  
+  // Sequential fetch, update each fund row immediately
+  let fetchedCount = 0;
   for (const code of codes) {
-    navResults[code] = await fetchNav(code);
+    const nav = await fetchNav(code);
+    navResults[code] = nav;
+    if (nav) {
+      fetchedCount++;
+      updateFundRow(code, nav);
+      lastNavResults[code] = nav;
+    }
+    document.getElementById("navStatus").textContent = 
+      "正在刷新净值... (" + fetchedCount + "/" + codes.length + ")";
   }
 
   lastNavResults = navResults;
 
   document.getElementById("navStatus").innerHTML =
-    '<span class="live-dot"></span>实时净值已就绪 [v20260529-18]（自动刷新中）';
+    '<span class="live-dot"></span>实时净值已就绪 [v20260616] · 逐只更新（自动刷新中）';
 
-  // Holdings table
+  // Holdings table (re-render with sector data)
   const sectorData2 = await fetchSectorBoards();
   buildHoldingsTable(codes, navResults, sectorData2);
 
