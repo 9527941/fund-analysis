@@ -3279,6 +3279,8 @@ async function renderSequential() {
 
   // 初始化表格结构（带占位符）
   const sectorData = await fetchSectorBoards();
+  // 提前获取大盘快照，确保 buildHoldingsTable 能拿到基准指数数据
+  await fetchMarketSnapshot();
 
   // 先用 EMBEDDED_NAV / cache 构建表格骨架
   for (const code of codes) {
@@ -3576,10 +3578,10 @@ async function slowPollAll(codes) {
   }
 
   const sectorData = await fetchSectorBoards();
+  await fetchMarketSnapshot();
   buildHoldingsTable(codes, lastNavResults, sectorData);
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
   recalcSummary(codes);
-  await fetchMarketSnapshot();
   buildInvestRef(codes, lastNavResults);
   buildCrossChannel(codes, lastNavResults);
 
@@ -3621,11 +3623,11 @@ async function refreshAll() {
   }
 
   const sectorData = await fetchSectorBoards();
+  await fetchMarketSnapshot();
   buildHoldingsTable(codes, lastNavResults, sectorData);
   buildRealizedPnLTable();
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
   recalcSummary(codes);
-  await fetchMarketSnapshot();
   buildInvestRef(codes, lastNavResults);
   buildCrossChannel(codes, lastNavResults);
 
