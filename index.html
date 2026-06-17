@@ -2896,7 +2896,7 @@ function toggleNavExpand() {
 // ============================================================
 // Market Snapshot — 实时大盘指数数据
 // ============================================================
-let marketSnapshot = null; // 缓存大盘快照
+// (marketSnapshot initialized below with default values)
 
 const MARKET_INDICES = {
   '1.000300': { name:'沪深300', type:'大盘价值' },
@@ -2907,22 +2907,27 @@ const MARKET_INDICES = {
   '0.399673': { name:'创业板50', type:'成长' }
 };
 
-// 指数数据源：本地 data/market-index.json（由 workflow 定期更新）
+// 指数数据源：本地 data/market-index.json + 硬编码兜底
 const MARKET_INDEX_URL = "./data/market-index.json";
+// 预填今日收盘数据（兜底，确保首次渲染有值）
+let marketSnapshot = {
+  "1.000300": { price: 4931.39, change: 0.97, name: "沪深300" },
+  "1.000905": { price: 8627.09, change: 1.40, name: "中证500" },
+  "0.399006": { price: 4167.05, change: 1.56, name: "创业板指" },
+  "1.000688": { price: 1840.82, change: 4.69, name: "科创50" }
+};
 
 async function fetchMarketSnapshot() {
-  let results = {};
   try {
     const resp = await fetch(MARKET_INDEX_URL + "?t=" + Date.now());
     if (resp.ok) {
       const data = await resp.json();
       if (data && data.indices) {
-        results = data.indices;
+        marketSnapshot = data.indices; // 用最新数据覆盖兜底值
       }
     }
-  } catch(e) { /* ignore */ }
-  marketSnapshot = results;
-  return results;
+  } catch(e) { /* keep default */ }
+  return marketSnapshot;
 }
 
 // ============================================================
