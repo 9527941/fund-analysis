@@ -1592,6 +1592,14 @@ let autoRefreshTimer = null;
 let autoRefreshOn = false;
 let lastNavResults = {}; // Keep latest NAV for stop-loss checks
 
+// --- 逐只更新状态 (v20260617) ---
+let fundPollTimers = {};      // 每只基金的独立轮询 timer
+let fundNavConfirmed = {};    // code → bool: 是否已拿到最新确认净值
+let pollActive = false;       // 快速轮询是否激活
+const POLL_INTERVAL = 15000;  // 快速轮询间隔 15 秒
+const SLOW_INTERVAL = 180000; // 慢速轮询间隔 3 分钟
+let pollingQueue = [];        // 轮询队列（需要持续轮询的基金）
+
 // ============================================================
 // Fund Metadata — 行业分类和特征
 // ============================================================
@@ -3085,6 +3093,81 @@ async function init() {
 }
 
 async function render() {
+  await renderSequential();
+}
+
+// ============================================================
+// 逐只串行获取净值，每只获取后立即更新UI —— v20260617
+// ============================================================
+async function renderSequential() {
+  const codes = Object.keys(FUND_DATA);
+  const total = codes.length;
+  let done = 0;
+  let confirmed = 0;
+
+  document.getElementById("navStatus").innerHTML =
+    '<span class="live-dot"></span>正在逐只获取净值 (<span id="fetchProgress">0/' + total + '</span>)...';
+
+  // Reset confirmed state
+  fundNavConfirmed = {};
+  codes.forEach(c => { fundNavConfirmed[c] = false; });
+
+  // 初始化表格结构（带占位符）
+  const sectorData = await fetchSectorBoards();
+
+  // 先用 EMBEDDED_NAV / cache 构建表格骨架
+  for (const code of codes) {
+    const cached = navFromCache(code);
+    if (cached) lastNavResults[code] = cached;
+  }
+  buildHoldingsTable(codes, lastNavResults, sectorData);
+  buildRealizedPnLTable();
+  document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
+  recalcSummary(codes);
+
+  // 串行逐只获取实时净值，每只获取后立即刷新该行
+  for (const code of codes) {
+    const nav = await fetchNav(code);
+    done++;
+
+    if (nav) {
+      lastNavResults[code] = nav;
+      // 判断是否拿到确认净值：jzrq >= 最近历史日期
+      const histDates = HISTORY_RAW.funds[code] || [];
+      const latestHist = histDates.length > 0 ? histDates[0].date : "";
+      if (nav.jzrq >= latestHist) {
+        fundNavConfirmed[code] = true;
+        confirmed++;
+      }
+    }
+
+    // 立即更新该基金行
+    updateFundRowOnly(code, nav);
+    // 更新快速概览中的该项
+    updateFundGlanceItem(code, nav);
+    // 更新汇总
+    recalcSummary(codes);
+
+    // 更新进度
+    document.getElementById("fetchProgress").textContent = done + "/" + total;
+    document.getElementById("navStatus").innerHTML =
+      '<span class="live-dot"></span>实时净值获取中 (' +
+      '<span id="fetchProgress">' + done + '/' + total + '</span>) · ' +
+      '<span style="color:#27ae60;font-weight:600;">' + confirmed + '</span>只已确认 [v20260617]';
+  }
+
+  // 更新板块数据
+  const updatedSector = await fetchSectorBoards();
+  buildHoldingsTable(codes, lastNavResults, updatedSector);
+  recalcSummary(codes);
+
+  // 单基金选择初始化
+  initSingleFundSelect(codes);
+
+  // 投资参考 & 跨渠道机会
+  buildInvestRef(codes, lastNavResults);
+  buildCrossChannel(codes, lastNavResults);
+
   const now = new Date();
   document.getElementById("reportDate").textContent =
     "📅 " + now.getFullYear() + "-" +
@@ -3093,110 +3176,100 @@ async function render() {
     String(now.getHours()).padStart(2,'0') + ":" +
     String(now.getMinutes()).padStart(2,'0');
 
-  const codes = Object.keys(FUND_DATA);
-  const navResults = {};
-  // IMPORTANT: Sequential fetch — 天天基金JSONP固定用jsonpgz回调名，并发会导致回调覆盖、数据串号
-  for (const code of codes) {
-    navResults[code] = await fetchNav(code);
-  }
+  // 启动智能轮询
+  startSmartPolling(codes, confirmed, total);
+}
 
-  lastNavResults = navResults;
+// ============================================================
+// 更新单只基金在表格中的行 —— 不重建整个表格
+// ============================================================
+function updateFundRowOnly(code, nav) {
+  const tbody = document.getElementById("holdingsTbody");
+  if (!tbody) return;
 
-  document.getElementById("navStatus").innerHTML =
-    '<span class="live-dot"></span>实时净值已就绪 [v20260529-18]（可随时刷新）';
+  const rows = tbody.querySelectorAll("tr");
+  for (const row of rows) {
+    const codeSpan = row.querySelector(".fund-code-text");
+    if (!codeSpan || codeSpan.textContent !== code) continue;
 
-  // --- Fetch sector board data ---
-  const sectorData = await fetchSectorBoards();
-
-  // --- Holdings Overview Table ---
-  buildHoldingsTable(codes, navResults, sectorData);
-
-  // --- Realized P&L Table ---
-  buildRealizedPnLTable();
-
-  // --- Quick Glance ---
-  document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, navResults);
-
-  // Calculate portfolio totals (analysis now integrated in single fund module)
-  let totalInvest = 0, totalValue = 0, totalPnl = 0;
-  const fundCalcs = {};
-
-  codes.forEach(code => {
-    const nav = navResults[code];
     if (!nav) return;
-    // Use confirmed NAV (dwjz) for consistent calculation
-    const useNav = nav.dwjz || nav.gsz || 0;
-    const calc = calcFund(code, useNav);
-    fundCalcs[code] = calc;
-    totalInvest += calc.totalCost;
-    totalValue += calc.currentValue;
-    totalPnl += calc.pnl;
-  });
 
-  // Update summary
-  document.getElementById("totalInvest").textContent = formatMoney(totalInvest);
-  document.getElementById("totalValue").textContent = formatMoney(totalValue);
-  const totalPnlEl = document.getElementById("totalPnl");
-  totalPnlEl.textContent = formatMoney(totalPnl);
-  totalPnlEl.className = "value " + upDownClass(totalPnl);
-  const totalRate = totalInvest > 0 ? (totalPnl / totalInvest) * 100 : 0;
-  document.getElementById("totalPnlRate").textContent = "收益率 " + formatRate(totalRate);
+    const f = FUND_DATA[code];
+    const meta = FUND_META[code];
+    const calc = calcFund(code, nav.dwjz || nav.gsz || 0);
 
-  // Portfolio analysis
-  document.getElementById("portfolioAnalysis").innerHTML = buildPortfolioAnalysis(fundCalcs);
+    const dwjz = nav.dwjz || 0;
+    const jzrq = nav.jzrq || "--";
+    const gszzl = nav.gszzl || 0;
 
-  // Single fund select init
-  initSingleFundSelect(codes);
+    const hasChange = (gszzl !== null && gszzl !== undefined && gszzl !== 0);
+    const changeDisplay = hasChange ? formatRate(gszzl) : "--";
+    const changeClass = hasChange ? upDownClass(gszzl) : "";
 
-  // Investment reference
-  buildInvestRef(codes, navResults);
+    // Status icon: confirmed or polling
+    const confirmed = fundNavConfirmed[code];
+    const statusIcon = confirmed ? ' <span style="font-size:0.7rem;" title="确认净值已更新">✅</span>' :
+      ' <span style="font-size:0.7rem;animation: pulse 1.5s ease-in-out infinite;" title="等待确认净值...">🔄</span>';
 
-  // Cross-channel opportunities
-  buildCrossChannel(codes, navResults);
+    // 构建该行的 HTML
+    const tds = row.querySelectorAll("td");
+    if (tds.length >= 8) {
+      // 基金名称行 (td[0])
+      tds[0].innerHTML = '<span class="fund-name-title">' + f.name + '</span>' +
+        '<span class="fund-code-text">' + code + '</span>' +
+        '<span class="fund-total-amount">市值 ¥' + calc.currentValue.toFixed(2) + statusIcon + '</span>';
 
-  // Update time
-  const sampleNav = navResults[codes[0]];
-  if (sampleNav) {
-    document.getElementById("reportDate").textContent +=
-      " · 净值时间: " + sampleNav.gztime;
+      // 净值列 (td[1])
+      tds[1].innerHTML = '<span class="nav-confirmed">' + dwjz.toFixed(4) + '</span>' +
+        '<span class="nav-date">' + jzrq + '</span>';
+
+      // 涨跌列 (td[2])
+      tds[2].className = "change-cell " + changeClass;
+      tds[2].textContent = changeDisplay;
+
+      // 盈亏列 (td[4])
+      tds[4].innerHTML = '<div class="' + upDownClass(calc.pnl) + '">' + formatMoney(calc.pnl) + '</div>' +
+        '<div class="pnl-rate ' + upDownClass(calc.pnlRate) + '">' + formatRate(calc.pnlRate) + '</div>';
+
+      // 成本均价 (td[5])
+      tds[5].textContent = calc.avgCost.toFixed(4);
+
+      // 持有份额 (td[6])
+      tds[6].textContent = calc.totalShares.toFixed(2) + " 份";
+
+      // 持仓金额 (td[7])
+      tds[7].textContent = "¥" + calc.totalCost.toFixed(2);
+    }
+    break;
   }
 }
 
 // ============================================================
-// Auto Refresh — 同时更新快速概览
+// 更新单只基金在快速概览中的项
 // ============================================================
-async function refreshAll() {
-  document.getElementById("navStatus").textContent = "正在刷新净值...";
+function updateFundGlanceItem(code, nav) {
+  if (!nav) return;
+  const glanceEl = document.getElementById("quickGlance");
+  if (!glanceEl) return;
+
+  // 找到对应的 glance item span 并更新
+  const items = glanceEl.querySelectorAll(".glance-item");
+  // If quickGlance uses a different structure, rebuild it
+  // For now, just rebuild quick glance entirely (lighter than full table)
   const codes = Object.keys(FUND_DATA);
-  const navResults = {};
-  // IMPORTANT: Sequential fetch — 天天基金JSONP固定用jsonpgz回调名，并发会导致回调覆盖、数据串号
-  for (const code of codes) {
-    navResults[code] = await fetchNav(code);
-  }
+  document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
+}
 
-  lastNavResults = navResults;
-
-  document.getElementById("navStatus").innerHTML =
-    '<span class="live-dot"></span>实时净值已就绪 [v20260529-18]（自动刷新中）';
-
-  // Holdings table
-  const sectorData2 = await fetchSectorBoards();
-  buildHoldingsTable(codes, navResults, sectorData2);
-
-  // Realized P&L table
-  buildRealizedPnLTable();
-
-  // Quick glance
-  document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, navResults);
-
-  // Fund totals (no individual fund cards)
+// ============================================================
+// 重算汇总数据
+// ============================================================
+function recalcSummary(codes) {
   let totalInvest = 0, totalValue = 0, totalPnl = 0;
   const fundCalcs = {};
 
   codes.forEach(code => {
-    const nav = navResults[code];
+    const nav = lastNavResults[code];
     if (!nav) return;
-    // Use confirmed NAV (dwjz) for consistent calculation
     const useNav = nav.dwjz || nav.gsz || 0;
     const calc = calcFund(code, useNav);
     fundCalcs[code] = calc;
@@ -3204,6 +3277,7 @@ async function refreshAll() {
     totalValue += calc.currentValue;
     totalPnl += calc.pnl;
   });
+
   document.getElementById("totalInvest").textContent = formatMoney(totalInvest);
   document.getElementById("totalValue").textContent = formatMoney(totalValue);
   const totalPnlEl = document.getElementById("totalPnl");
@@ -3212,14 +3286,182 @@ async function refreshAll() {
   const totalRate = totalInvest > 0 ? (totalPnl / totalInvest) * 100 : 0;
   document.getElementById("totalPnlRate").textContent = "收益率 " + formatRate(totalRate);
   document.getElementById("portfolioAnalysis").innerHTML = buildPortfolioAnalysis(fundCalcs);
+}
 
-  // Investment reference & cross-channel
-  buildInvestRef(codes, navResults);
-  buildCrossChannel(codes, navResults);
+// ============================================================
+// 智能轮询：未确认的基金快速轮询，全部确认后慢速轮询
+// ============================================================
+function startSmartPolling(codes, confirmed, total) {
+  // 清除旧 timer
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  Object.values(fundPollTimers).forEach(t => clearTimeout(t));
+  fundPollTimers = {};
+
+  const unconfirmed = codes.filter(c => !fundNavConfirmed[c]);
+
+  if (unconfirmed.length > 0) {
+    // 还有未确认的基金，启动快速轮询
+    pollActive = true;
+    document.getElementById("refreshTimer").textContent =
+      "持续轮询中: " + confirmed + "/" + total + " 已确认（每15秒检查剩余基金）";
+
+    // 立即启动第一轮
+    scheduleQuickPoll(unconfirmed);
+  } else {
+    // 全部确认，慢速轮询
+    pollActive = false;
+    document.getElementById("refreshTimer").textContent =
+      "全部已确认 · 每3分钟刷新一次估值";
+    document.getElementById("navStatus").innerHTML =
+      '<span class="live-dot"></span>实时净值已就绪 · ' + total + '只全部确认 [v20260617]';
+
+    autoRefreshTimer = setInterval(() => {
+      slowPollAll(codes);
+    }, SLOW_INTERVAL);
+  }
+}
+
+// ============================================================
+// 快速轮询队列：串行逐只获取未确认基金
+// ============================================================
+async function scheduleQuickPoll(unconfirmed) {
+  if (!pollActive) return;
+
+  document.getElementById("navStatus").innerHTML =
+    '<span class="live-dot"></span>轮询确认净值中 (' + unconfirmed.length + '只等待)... [v20260617]';
+
+  // 串行获取所有未确认基金
+  for (const code of unconfirmed) {
+    if (!pollActive) break;
+
+    document.getElementById("refreshTimer").textContent =
+      "正在检查: " + (FUND_DATA[code] ? FUND_DATA[code].name : code) + "...";
+
+    const nav = await fetchNav(code);
+
+    if (nav) {
+      lastNavResults[code] = nav;
+      const histDates = HISTORY_RAW.funds[code] || [];
+      const latestHist = histDates.length > 0 ? histDates[0].date : "";
+
+      if (nav.jzrq >= latestHist) {
+        fundNavConfirmed[code] = true;
+      }
+
+      updateFundRowOnly(code, nav);
+      updateFundGlanceItem(code, nav);
+      recalcSummary(Object.keys(FUND_DATA));
+    }
+
+    // 每只之间短暂间隔（避免请求过密）
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  // 重新统计
+  const allCodes = Object.keys(FUND_DATA);
+  const stillUnconfirmed = allCodes.filter(c => !fundNavConfirmed[c]);
+  const newConfirmed = allCodes.length - stillUnconfirmed.length;
+
+  if (stillUnconfirmed.length === 0) {
+    // 全部确认完毕
+    pollActive = false;
+    document.getElementById("refreshTimer").textContent =
+      "全部已确认 · 每3分钟刷新一次估值";
+    document.getElementById("navStatus").innerHTML =
+      '<span class="live-dot"></span>实时净值已就绪 · ' + allCodes.length + '只全部确认 [v20260617]';
+
+    // 切换到慢速轮询
+    autoRefreshTimer = setInterval(() => {
+      slowPollAll(allCodes);
+    }, SLOW_INTERVAL);
+  } else {
+    // 仍有未确认，继续快速轮询
+    document.getElementById("refreshTimer").textContent =
+      "持续轮询中: " + newConfirmed + "/" + allCodes.length + " 已确认（" + stillUnconfirmed.length + "只等待，15秒后重试）";
+    document.getElementById("navStatus").innerHTML =
+      '<span class="live-dot"></span>' + newConfirmed + '/' + allCodes.length + '只已确认 · ' + stillUnconfirmed.length + '只轮询中... [v20260617]';
+
+    // 15秒后再次轮询
+    fundPollTimers["_global"] = setTimeout(() => {
+      scheduleQuickPoll(stillUnconfirmed);
+    }, POLL_INTERVAL);
+  }
+}
+
+// ============================================================
+// 慢速轮询：全体刷新估值
+// ============================================================
+async function slowPollAll(codes) {
+  document.getElementById("navStatus").innerHTML =
+    '<span class="live-dot"></span>刷新估值中... [v20260617]';
+
+  for (const code of codes) {
+    const nav = await fetchNav(code);
+    if (nav) {
+      lastNavResults[code] = nav;
+      updateFundRowOnly(code, nav);
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  const sectorData = await fetchSectorBoards();
+  buildHoldingsTable(codes, lastNavResults, sectorData);
+  document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
+  recalcSummary(codes);
+  buildInvestRef(codes, lastNavResults);
+  buildCrossChannel(codes, lastNavResults);
 
   const now = new Date();
   document.getElementById("refreshTimer").textContent =
     "上次刷新: " + String(now.getHours()).padStart(2,'0') + ":" +
+    String(now.getMinutes()).padStart(2,'0') + ":" +
+    String(now.getSeconds()).padStart(2,'0');
+
+  document.getElementById("navStatus").innerHTML =
+    '<span class="live-dot"></span>实时净值已就绪 [v20260617]';
+}
+
+// ============================================================
+// Auto Refresh — 已废弃，使用 startSmartPolling 替代
+// ============================================================
+function startAutoRefresh() {
+  // No-op: 由 startSmartPolling 接管
+  document.getElementById("refreshTimer").textContent = "智能轮询已启动";
+}
+
+// ============================================================
+// refreshAll - 兼容旧接口，现在转发到 startSmartPolling
+// ============================================================
+async function refreshAll() {
+  document.getElementById("navStatus").textContent = "正在刷新净值...";
+  const codes = Object.keys(FUND_DATA);
+
+  // 快速全量刷新
+  for (const code of codes) {
+    const nav = await fetchNav(code);
+    if (nav) {
+      lastNavResults[code] = nav;
+      const histDates = HISTORY_RAW.funds[code] || [];
+      const latestHist = histDates.length > 0 ? histDates[0].date : "";
+      if (nav.jzrq >= latestHist) fundNavConfirmed[code] = true;
+      updateFundRowOnly(code, nav);
+    }
+  }
+
+  const sectorData = await fetchSectorBoards();
+  buildHoldingsTable(codes, lastNavResults, sectorData);
+  buildRealizedPnLTable();
+  document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
+  recalcSummary(codes);
+  buildInvestRef(codes, lastNavResults);
+  buildCrossChannel(codes, lastNavResults);
+
+  const confirmed = codes.filter(c => fundNavConfirmed[c]).length;
+  startSmartPolling(codes, confirmed, codes.length);
+
+  const now = new Date();
+  document.getElementById("refreshTimer").textContent =
+    "手动刷新完成: " + String(now.getHours()).padStart(2,'0') + ":" +
     String(now.getMinutes()).padStart(2,'0') + ":" +
     String(now.getSeconds()).padStart(2,'0');
 }
