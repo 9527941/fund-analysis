@@ -1604,10 +1604,14 @@ let pollingQueue = [];        // 轮询队列（需要持续轮询的基金）
 // ============================================================
 // Fund Metadata — 行业分类和特征
 // ============================================================
+// ETF联接 → benchmarkType:"index" 用基金自身gszzl当板块参考（最准确）
+// 主动管理 → benchmarkType:"market" 用大盘指数逼近
+// ============================================================
 const FUND_META = {
   "013841": {
     sector: "半导体材料设备",
     sectorCN: "半导体",
+    benchmarkType: "market",
     benchmarkIndex: "1.000688",
     benchmarkLabel: "科创50",
     riskLevel: "高",
@@ -1617,6 +1621,7 @@ const FUND_META = {
   "002164": {
     sector: "电网设备",
     sectorCN: "灵活配置",
+    benchmarkType: "market",
     benchmarkIndex: "1.000300",
     benchmarkLabel: "沪深300",
     riskLevel: "中高",
@@ -1626,15 +1631,17 @@ const FUND_META = {
   "012630": {
     sector: "国证半导体芯片",
     sectorCN: "半导体",
-    benchmarkIndex: "1.000688",
-    benchmarkLabel: "科创50",
+    benchmarkType: "index",
+    benchmarkIndex: "",
+    benchmarkLabel: "国证芯片",
     riskLevel: "高",
-    style: "ETF联接，被动跟踪半导体芯片指数",
-    notes: "纯指数跟踪，无主动管理，涨跌全看半导体板块走势"
+    style: "ETF联接，被动跟踪国证半导体芯片指数",
+    notes: "纯指数跟踪，涨跌即板块涨跌"
   },
   "004937": {
     sector: "有色金属",
     sectorCN: "国企改革",
+    benchmarkType: "market",
     benchmarkIndex: "1.000905",
     benchmarkLabel: "中证500",
     riskLevel: "中高",
@@ -1644,15 +1651,17 @@ const FUND_META = {
   "024246": {
     sector: "科创人工智能",
     sectorCN: "AI",
-    benchmarkIndex: "1.000688",
-    benchmarkLabel: "科创50",
+    benchmarkType: "index",
+    benchmarkIndex: "",
+    benchmarkLabel: "科创AI",
     riskLevel: "高",
     style: "ETF联接，被动跟踪科创AI指数",
-    notes: "AI赛道高成长高波动，长期逻辑清晰但短期波动剧烈"
+    notes: "纯指数跟踪，涨跌即板块涨跌"
   },
   "001423": {
     sector: "灵活配置",
     sectorCN: "稳健型",
+    benchmarkType: "market",
     benchmarkIndex: "1.000300",
     benchmarkLabel: "沪深300",
     riskLevel: "中低",
@@ -1662,20 +1671,22 @@ const FUND_META = {
   "016020": {
     sector: "电池主题",
     sectorCN: "新能源",
-    benchmarkIndex: "0.399006",
-    benchmarkLabel: "创业板指",
+    benchmarkType: "index",
+    benchmarkIndex: "",
+    benchmarkLabel: "中证电池",
     riskLevel: "高",
     style: "ETF联接，被动跟踪中证电池主题指数",
-    notes: "新能源赛道高波动，受政策及产业链景气度影响大"
+    notes: "纯指数跟踪，涨跌即板块涨跌"
   },
   "016186": {
     sector: "电力公用事业",
     sectorCN: "电力",
-    benchmarkIndex: "1.000300",
-    benchmarkLabel: "沪深300",
+    benchmarkType: "index",
+    benchmarkIndex: "",
+    benchmarkLabel: "中证电力",
     riskLevel: "中高",
     style: "ETF联接，被动跟踪中证电力公用事业指数",
-    notes: "电力板块防御性较强，受电价政策和公用事业改革影响"
+    notes: "纯指数跟踪，涨跌即板块涨跌"
   }
 };
 
@@ -2509,25 +2520,35 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     const changeDisplay = hasChange ? formatRate(gszzl) : "--";
     const changeClass = hasChange ? upDownClass(gszzl) : "";
 
-    // Sector display — use benchmark index change rate (科创50/创业板指/沪深300/中证500)
+    // Sector display: ETF联接用自身gszzl（即板块涨跌），主动管理用大盘指数
     let sectorHtml = "";
     const sectorColors = { "半导体材料设备": "#fde8e8", "国证半导体芯片": "#fde8e8", "科创人工智能": "#f3e8ff", "有色金属": "#dbeafe", "电网设备": "#e8f5e9", "电池主题": "#e8f5e9", "电力公用事业": "#dbeafe", "灵活配置": "#f5f5f5" };
     const sectorTextColors = { "半导体材料设备": "#c0392b", "国证半导体芯片": "#c0392b", "科创人工智能": "#7c3aed", "有色金属": "#1e40af", "电网设备": "#166534", "电池主题": "#166534", "电力公用事业": "#1e40af", "灵活配置": "#555" };
     const bg = sectorColors[meta.sector] || "#f0f0f0";
     const tc = sectorTextColors[meta.sector] || "#666";
 
-    const benchIdx = meta.benchmarkIndex ? (marketSnapshot && marketSnapshot[meta.benchmarkIndex]) : null;
-    if (benchIdx && benchIdx.change !== undefined && benchIdx.change !== null) {
-      const sChange = benchIdx.change;
-      const sCls = sChange >= 0 ? "up" : "down";
-      const sSign = sChange >= 0 ? "+" : "";
-      sectorHtml = `<span class="sector-change ${sCls}" title="${benchIdx.name}">${sSign}${sChange.toFixed(2)}%</span>
-        <span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
+    if (meta.benchmarkType === "index") {
+      // ETF联接：自身涨跌即板块涨跌，标上跟踪指数名
+      const sCls = gszzl >= 0 ? "up" : "down";
+      const sSign = gszzl >= 0 ? "+" : "";
+      sectorHtml = `<span class="sector-change ${sCls}" title="跟踪${meta.benchmarkLabel}指数">${sSign}${gszzl.toFixed(2)}%</span>
+        <span class="sector-tag" style="background:${bg};color:${tc}">${meta.benchmarkLabel}</span>
         <span class="sector-risk">${meta.riskLevel}风险</span>`;
     } else {
-      sectorHtml = `<span class="sector-change">--</span>
-        <span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
-        <span class="sector-risk">${meta.riskLevel}风险</span>`;
+      // 主动管理：用大盘指数逼近
+      const benchIdx = meta.benchmarkIndex ? (marketSnapshot && marketSnapshot[meta.benchmarkIndex]) : null;
+      if (benchIdx && benchIdx.change !== undefined && benchIdx.change !== null) {
+        const sChange = benchIdx.change;
+        const sCls = sChange >= 0 ? "up" : "down";
+        const sSign = sChange >= 0 ? "+" : "";
+        sectorHtml = `<span class="sector-change ${sCls}" title="${benchIdx.name}">${sSign}${sChange.toFixed(2)}%</span>
+          <span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
+          <span class="sector-risk">${meta.riskLevel}风险</span>`;
+      } else {
+        sectorHtml = `<span class="sector-change">--</span>
+          <span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
+          <span class="sector-risk">${meta.riskLevel}风险</span>`;
+      }
     }
 
     rows += `<tr>
