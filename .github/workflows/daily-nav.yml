@@ -1,12 +1,20 @@
 name: Update Fund NAV Data
-# v2 - git push
+# v3 - 优化cron覆盖 + 修复去重逻辑 (2026-06-17)
+# 调度说明(全部北京时间):
+#   20:00, 21:00, 22:00, 23:00  (周一~周五)  收盘后密集轮询
+#   00:30, 06:00               (周二~周六)       次日补漏
+#   手动触发 + push 触发         随时可执行
 
 on:
   schedule:
-    - cron: '0 13 * * 1-5'
-    - cron: '0 14 * * 1-5'
-    - cron: '0 15 * * 1-5'
-    - cron: '0 22 * * 2-6'
+    # 收盘后轮询窗口 (UTC 12:00-15:00 = BJT 20:00-23:00)
+    - cron: '0 12 * * 1-5'    # BJT 20:00
+    - cron: '0 13 * * 1-5'    # BJT 21:00
+    - cron: '0 14 * * 1-5'    # BJT 22:00
+    - cron: '0 15 * * 1-5'    # BJT 23:00
+    # 次日补漏 (UTC 16:30+22:00 = BJT 00:30+06:00)
+    - cron: '30 16 * * 2-6'   # BJT 00:30
+    - cron: '0 22 * * 2-6'    # BJT 06:00
   workflow_dispatch:
   push:
     paths:
@@ -27,33 +35,47 @@ jobs:
         with:
           python-version: '3.12'
 
+      # 记录更新前的状态（用于检测是否真的有变化）
+      - name: Snapshot before state
+        id: before
+        run: |
+          BEFORE_MD5=$(md5sum data/fund-nav.json 2>/dev/null | cut -d' ' -f1 || echo "none")
+          echo "md5=$BEFORE_MD5" >> $GITHUB_OUTPUT
+          echo "before_md5=$BEFORE_MD5"
+          # 同时记录当前jzrq用于日志
+          python3 -c "
+import json
+d=json.load(open('data/fund-nav.json'))
+dates=set(d['funds'][c].get('jzrq','?') for c in d['funds'])
+print(f'Current jzrq dates: {sorted(dates)}')
+          "
+
       - name: Fetch latest NAV data
         run: python .github/workflows/fetch_nav.py
 
-      - name: Check if data is already up-to-date
+      - name: Check if data actually changed
         id: check
         run: |
-          CACHED_DATE=$(python3 -c "import json; d=json.load(open('data/fund-nav.json')); print(d['updated'])" 2>/dev/null || echo "")
-          TODAY=$(date -u +%Y-%m-%d)
-          echo "cached_date=$CACHED_DATE"
-          echo "today=$TODAY"
-          if [ "$CACHED_DATE" = "$TODAY" ]; then
-            ALL_TODAY=$(python3 -c "
-import json
-d=json.load(open('data/fund-nav.json'))
-dates=[d['funds'][c]['jzrq'] for c in d['funds'] if 'jzrq' in d['funds'][c]]
-print('yes' if dates and all(x==dates[0] for x in dates) else 'no')
-" 2>/dev/null || echo "no")
-            echo "all_today=$ALL_TODAY"
-            if [ "$ALL_TODAY" = "yes" ]; then
-              echo "skip=true" >> $GITHUB_OUTPUT
-              echo "Data already up-to-date for $TODAY, skipping commit"
-            else
-              echo "skip=false" >> $GITHUB_OUTPUT
-              echo "Cache updated today but some funds have older jzrq, will check for changes"
-            fi
+          AFTER_MD5=$(md5sum data/fund-nav.json 2>/dev/null | cut -d' ' -f1 || echo "none")
+          echo "after_md5=$AFTER_MD5"
+          echo "before_md5=${{ steps.before.outputs.md5 }}"
+
+          if [ "$AFTER_MD5" = "${{ steps.before.outputs.md5 }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "fund-nav.json unchanged, skipping commit"
+            # 即使 nav 未变，仍检查 HTML 文件是否有 history 更新
           else
             echo "skip=false" >> $GITHUB_OUTPUT
+            echo "fund-nav.json changed, will commit"
+            # 显示变化摘要
+            python3 -c "
+import json
+d=json.load(open('data/fund-nav.json'))
+print(f\"updated: {d.get('updated','?')}\")
+for c in sorted(d['funds']):
+    f=d['funds'][c]
+    print(f\"  {c}: dwjz={f.get('dwjz','?')}, jzrq={f.get('jzrq','?')}, gsz={f.get('gsz','?')}\")
+            "
           fi
 
       - name: Commit and push if changed
@@ -63,8 +85,8 @@ print('yes' if dates and all(x==dates[0] for x in dates) else 'no')
           git config user.email "fund-bot[bot]@users.noreply.github.com"
           git add data/fund-nav.json index.html fund-report.html
           if git diff --cached --quiet; then
-            echo "No changes to commit"
+            echo "No changes to commit (HTML also unchanged)"
           else
-            git commit -m "chore: update fund data $(date +%Y-%m-%d)"
+            git commit -m "auto: update fund data"
             git push
           fi

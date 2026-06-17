@@ -1,38 +1,20 @@
-name: Update Fund NAV
+name: Update Fund NAV (backup)
+# v3 - 增加调度覆盖 + 简化逻辑 (2026-06-17)
+# 作为 daily-nav.yml 的补充/备份，无去重检查
+
 on:
   schedule:
-    # ============================================================
-    # Evening window (Beijing 21:00 - 01:00+1, Mon-Fri)
-    # High frequency: every 20-30 min to catch each fund's NAV
-    # as soon as it's published (fund companies publish at different times)
-    # ============================================================
-    - cron: '0 13 * * 1-5'     # Beijing 21:00
-    - cron: '20 13 * * 1-5'    # Beijing 21:20
-    - cron: '40 13 * * 1-5'    # Beijing 21:40
-    - cron: '0 14 * * 1-5'     # Beijing 22:00
-    - cron: '20 14 * * 1-5'    # Beijing 22:20
-    - cron: '40 14 * * 1-5'    # Beijing 22:40
-    - cron: '0 15 * * 1-5'     # Beijing 23:00
-    - cron: '20 15 * * 1-5'    # Beijing 23:20
-    - cron: '40 15 * * 1-5'    # Beijing 23:40
-    - cron: '0 16 * * 1-5'     # Beijing 00:00 Tue-Sat
-    - cron: '20 16 * * 1-5'    # Beijing 00:20 Tue-Sat
-    - cron: '40 16 * * 1-5'    # Beijing 00:40 Tue-Sat
-    # ============================================================
-    # Morning fallback window (Beijing 06:00 - 09:00)
-    # ============================================================
-    - cron: '0 22 * * 0,2-6'   # Beijing 06:00 Mon+Tue-Sat
-    - cron: '0 23 * * 0,2-6'   # Beijing 07:00 Mon+Tue-Sat
-    - cron: '0 0 * * 1-6'      # Beijing 08:00 Mon-Sat
-    - cron: '0 1 * * 1-6'      # Beijing 09:00 Mon-Sat
-    # ============================================================
-    # Post-market-open window (Beijing 10:00 - 11:30, Tue-Sat)
-    # KEY: after 09:30 when JSONP updates jzrq for live estimates
-    # ============================================================
-    - cron: '0 2 * * 2-6'      # Beijing 10:00 Tue-Sat
-    - cron: '30 2 * * 2-6'     # Beijing 10:30 Tue-Sat
-    - cron: '0 3 * * 2-6'      # Beijing 11:00 Tue-Sat
-    - cron: '30 3 * * 2-6'     # Beijing 11:30 Tue-Sat
+    # 收盘后轮询窗口 (UTC 12:00-15:00 = BJT 20:00-23:00) — 与 daily-nav 重叠形成双保险
+    - cron: '0 12 * * 1-5'    # BJT 20:00
+    - cron: '0 13 * * 1-5'    # BJT 21:00
+    - cron: '0 14 * * 1-5'    # BJT 22:00
+    - cron: '0 15 * * 1-5'    # BJT 23:00
+    # 次日补漏 (UTC 16:30+22:00+23:00+0:00+1:00 = BJT 00:30+06:00+07:00+08:00+09:00)
+    - cron: '30 16 * * 2-6'   # BJT 00:30
+    - cron: '0 22 * * 2-6'    # BJT 06:00
+    - cron: '0 23 * * 2-6'    # BJT 07:00
+    - cron: '0 0 * * 2-6'     # BJT 08:00
+    - cron: '0 1 * * 2-6'     # BJT 09:00
   workflow_dispatch:
   push:
     paths:
@@ -47,10 +29,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Check and Update NAV
-        run: python .github/workflows/fetch_nav.py
-      - name: Commit and Push
-        run: |
+      - run: python .github/workflows/fetch_nav.py
+      - run: |
           git config user.name "fund-bot"
           git config user.email "fund-bot[bot]@users.noreply.github.com"
           git add data/fund-nav.json index.html fund-report.html
