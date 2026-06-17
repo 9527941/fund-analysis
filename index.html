@@ -1661,8 +1661,8 @@ const FUND_META = {
   "016020": {
     sector: "电池主题",
     sectorCN: "新能源",
-    sectorBoardCode: "90.BK0478",
-    sectorBoardName: "电池",
+    sectorBoardCode: "90.BK0493",
+    sectorBoardName: "新能源",
     riskLevel: "高",
     style: "ETF联接，被动跟踪中证电池主题指数",
     notes: "新能源赛道高波动，受政策及产业链景气度影响大"
@@ -2479,21 +2479,24 @@ async function fetchSectorBoards() {
     }
   } catch (e) { /* ignore */ }
 
-  // Step 2: JSONP live update from Eastmoney (bypasses CORS)
+  // Step 2: Live fetch from Eastmoney (supports CORS, no JSONP needed)
   const livePromises = boardCodes.map(async code => {
     try {
-      const data = await fetchJsonp(
+      const resp = await fetch(
         `https://push2.eastmoney.com/api/qt/stock/get?secid=${code}&fields=f57,f58,f43,f170`
       );
-      if (data && data.data) {
-        result[code] = {
-          name: data.data.f58 || "",
-          price: data.data.f43 || 0,
-          changeRate: data.data.f170 !== null && data.data.f170 !== undefined ? (data.data.f170 / 100) : null
-        };
+      if (resp.ok) {
+        const j = await resp.json();
+        if (j && j.data) {
+          result[code] = {
+            name: j.data.f58 || "",
+            price: j.data.f43 || 0,
+            changeRate: j.data.f170 !== null && j.data.f170 !== undefined ? (j.data.f170 / 100) : null
+          };
+        }
       }
     } catch (e) {
-      // JSONP failed — keep using local data if available
+      // Fetch failed — keep using local data if available
     }
   });
   await Promise.all(livePromises);
@@ -2535,8 +2538,8 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     let sectorHtml = "";
     const sectorBoard = (sectorData && sectorData[meta.sectorBoardCode]) || null;
 
-    const sectorColors = { "半导体材料设备": "#fde8e8", "国证半导体芯片": "#fde8e8", "科创人工智能": "#f3e8ff", "有色金属": "#dbeafe", "电网设备": "#e8f5e9" };
-    const sectorTextColors = { "半导体材料设备": "#c0392b", "国证半导体芯片": "#c0392b", "科创人工智能": "#7c3aed", "有色金属": "#1e40af", "电网设备": "#166534" };
+    const sectorColors = { "半导体材料设备": "#fde8e8", "国证半导体芯片": "#fde8e8", "科创人工智能": "#f3e8ff", "有色金属": "#dbeafe", "电网设备": "#e8f5e9", "电池主题": "#e8f5e9", "电力公用事业": "#dbeafe", "灵活配置": "#f5f5f5" };
+    const sectorTextColors = { "半导体材料设备": "#c0392b", "国证半导体芯片": "#c0392b", "科创人工智能": "#7c3aed", "有色金属": "#1e40af", "电网设备": "#166534", "电池主题": "#166534", "电力公用事业": "#1e40af", "灵活配置": "#555" };
     const bg = sectorColors[meta.sector] || "#f0f0f0";
     const tc = sectorTextColors[meta.sector] || "#666";
 
