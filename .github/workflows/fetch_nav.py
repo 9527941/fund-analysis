@@ -303,5 +303,62 @@ def update_embedded_nav(funds_data):
     return True
 
 
+
+# ============================================================
+# 板块行情数据更新 (2026-06-17)
+# push2 板块 API 不支持 CORS，前端 fetch() 会被浏览器阻止
+# 改为在服务端抓取，写入 sector-data.json
+# ============================================================
+SECTOR_OUTPUT_FILE = "data/sector-data.json"
+SECTOR_BOARD_CODES = {
+    "90.BK1036": "半导体",
+    "90.BK0459": "电网设备",
+    "90.BK0478": "有色金属",
+    "90.BK0800": "人工智能",
+    "90.BK0428": "电力行业",
+    "90.BK0493": "新能源"
+}
+PUSH2_API = "https://push2.eastmoney.com/api/qt/stock/get?secid={code}&fields=f57,f58,f43,f170"
+
+def fetch_sector_data():
+    """从东方财富 push2 API 获取板块行情"""
+    print("=== Fetching sector board data ===")
+    boards = {}
+    for code, name in SECTOR_BOARD_CODES.items():
+        try:
+            url = PUSH2_API.format(code=code)
+            req = urllib.request.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            })
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            if data.get("data"):
+                d = data["data"]
+                change_rate = d.get("f170")
+                boards[code] = {
+                    "name": d.get("f58", name),
+                    "price": d.get("f43", 0),
+                    "changeRate": (change_rate / 100) if change_rate is not None else None
+                }
+                change_str = f"{'+' if (change_rate or 0)>0 else ''}{(change_rate or 0)/100:.2f}%" if change_rate is not None else "--"
+                print(f"  {code} {d.get('f58',name)}: {change_str}")
+            else:
+                print(f"  {code}: no data, keeping cached")
+        except Exception as e:
+            print(f"  {code}: fetch failed ({e}), keeping cached")
+
+    if boards:
+        result = {
+            "updateTime": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "boards": boards
+        }
+        with open(SECTOR_OUTPUT_FILE, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+        print(f"  sector-data.json updated ({len(boards)} boards)")
+    else:
+        print("  No sector data fetched, keeping existing file")
+
+
+
 if __name__ == "__main__":
     main()
