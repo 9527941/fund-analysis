@@ -1607,8 +1607,8 @@ const FUND_META = {
   "013841": {
     sector: "半导体材料设备",
     sectorCN: "半导体",
-    sectorBoardCode: "90.BK1036",
-    sectorBoardName: "半导体",
+    benchmarkIndex: "1.000688",
+    benchmarkLabel: "科创50",
     riskLevel: "高",
     style: "行业主题（被动+主动混合）",
     notes: "重仓半导体产业链，波动极大，受中美科技博弈和行业周期影响显著"
@@ -1616,8 +1616,8 @@ const FUND_META = {
   "002164": {
     sector: "电网设备",
     sectorCN: "灵活配置",
-    sectorBoardCode: "90.BK0459",
-    sectorBoardName: "电网",
+    benchmarkIndex: "1.000300",
+    benchmarkLabel: "沪深300",
     riskLevel: "中高",
     style: "灵活配置型，基金经理主动择时择股",
     notes: "仓位灵活，取决于基金经理判断，需关注基金经理风格稳定性"
@@ -1625,8 +1625,8 @@ const FUND_META = {
   "012630": {
     sector: "国证半导体芯片",
     sectorCN: "半导体",
-    sectorBoardCode: "90.BK1036",
-    sectorBoardName: "半导体",
+    benchmarkIndex: "1.000688",
+    benchmarkLabel: "科创50",
     riskLevel: "高",
     style: "ETF联接，被动跟踪半导体芯片指数",
     notes: "纯指数跟踪，无主动管理，涨跌全看半导体板块走势"
@@ -1634,8 +1634,8 @@ const FUND_META = {
   "004937": {
     sector: "有色金属",
     sectorCN: "国企改革",
-    sectorBoardCode: "90.BK0478",
-    sectorBoardName: "有色金属",
+    benchmarkIndex: "1.000905",
+    benchmarkLabel: "中证500",
     riskLevel: "中高",
     style: "主题型，聚焦国企改革和混改概念",
     notes: "政策驱动型，受国企改革进度和资本市场政策影响大"
@@ -1643,8 +1643,8 @@ const FUND_META = {
   "024246": {
     sector: "科创人工智能",
     sectorCN: "AI",
-    sectorBoardCode: "90.BK0800",
-    sectorBoardName: "人工智能",
+    benchmarkIndex: "1.000688",
+    benchmarkLabel: "科创50",
     riskLevel: "高",
     style: "ETF联接，被动跟踪科创AI指数",
     notes: "AI赛道高成长高波动，长期逻辑清晰但短期波动剧烈"
@@ -1652,8 +1652,8 @@ const FUND_META = {
   "001423": {
     sector: "灵活配置",
     sectorCN: "稳健型",
-    sectorBoardCode: "90.BK0459",
-    sectorBoardName: "灵活配置",
+    benchmarkIndex: "1.000300",
+    benchmarkLabel: "沪深300",
     riskLevel: "中低",
     style: "灵活配置型，追求绝对收益，股债混合",
     notes: "偏债混合，追求稳健回报，适合作为组合底仓"
@@ -1661,8 +1661,8 @@ const FUND_META = {
   "016020": {
     sector: "电池主题",
     sectorCN: "新能源",
-    sectorBoardCode: "90.BK0493",
-    sectorBoardName: "新能源",
+    benchmarkIndex: "0.399006",
+    benchmarkLabel: "创业板指",
     riskLevel: "高",
     style: "ETF联接，被动跟踪中证电池主题指数",
     notes: "新能源赛道高波动，受政策及产业链景气度影响大"
@@ -1670,8 +1670,8 @@ const FUND_META = {
   "016186": {
     sector: "电力公用事业",
     sectorCN: "电力",
-    sectorBoardCode: "90.BK0428",
-    sectorBoardName: "电力",
+    benchmarkIndex: "1.000300",
+    benchmarkLabel: "沪深300",
     riskLevel: "中高",
     style: "ETF联接，被动跟踪中证电力公用事业指数",
     notes: "电力板块防御性较强，受电价政策和公用事业改革影响"
@@ -2508,17 +2508,26 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     const changeDisplay = hasChange ? formatRate(gszzl) : "--";
     const changeClass = hasChange ? upDownClass(gszzl) : "";
 
-    // Sector display — calculated from fund NAV data (no external API dependency)
+    // Sector display — use benchmark index change rate (科创50/创业板指/沪深300/中证500)
     let sectorHtml = "";
     const sectorColors = { "半导体材料设备": "#fde8e8", "国证半导体芯片": "#fde8e8", "科创人工智能": "#f3e8ff", "有色金属": "#dbeafe", "电网设备": "#e8f5e9", "电池主题": "#e8f5e9", "电力公用事业": "#dbeafe", "灵活配置": "#f5f5f5" };
     const sectorTextColors = { "半导体材料设备": "#c0392b", "国证半导体芯片": "#c0392b", "科创人工智能": "#7c3aed", "有色金属": "#1e40af", "电网设备": "#166534", "电池主题": "#166534", "电力公用事业": "#1e40af", "灵活配置": "#555" };
     const bg = sectorColors[meta.sector] || "#f0f0f0";
     const tc = sectorTextColors[meta.sector] || "#666";
-    const sCls = gszzl >= 0 ? "up" : "down";
-    const sSign = gszzl >= 0 ? "+" : "";
-    sectorHtml = `<span class="sector-change ${sCls}">${sSign}${gszzl.toFixed(2)}%</span>
-      <span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
-      <span class="sector-risk">${meta.riskLevel}风险</span>`;
+
+    const benchIdx = meta.benchmarkIndex ? (marketSnapshot && marketSnapshot[meta.benchmarkIndex]) : null;
+    if (benchIdx && benchIdx.change !== undefined && benchIdx.change !== null) {
+      const sChange = benchIdx.change;
+      const sCls = sChange >= 0 ? "up" : "down";
+      const sSign = sChange >= 0 ? "+" : "";
+      sectorHtml = `<span class="sector-change ${sCls}" title="${benchIdx.name}">${sSign}${sChange.toFixed(2)}%</span>
+        <span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
+        <span class="sector-risk">${meta.riskLevel}风险</span>`;
+    } else {
+      sectorHtml = `<span class="sector-change">--</span>
+        <span class="sector-tag" style="background:${bg};color:${tc}">${meta.sector}</span>
+        <span class="sector-risk">${meta.riskLevel}风险</span>`;
+    }
 
     rows += `<tr>
       <td class="fund-name-cell">
