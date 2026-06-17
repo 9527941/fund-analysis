@@ -2906,30 +2906,87 @@ const MARKET_INDICES = {
   '0.399673': { name:'创业板50', type:'成长' }
 };
 
+// push2 → Sina 代码映射 (push2 已封锁，改用新浪 JSONP)
+const SINA_CODE_MAP = {
+  '1.000300': 'sh000300',  // 沪深300
+  '1.000905': 'sh000905',  // 中证500
+  '0.399006': 'sz399006',  // 创业板指
+  '1.000688': 'sh000688',  // 科创50
+  '1.000001': 'sh000001',  // 上证指数
+  '0.399673': 'sz399673'   // 创业板50
+};
+
 async function fetchMarketSnapshot() {
   const results = {};
   const codes = Object.keys(MARKET_INDICES);
-  // 使用现有 fetch (push2 API 支持 CORS)
-  const promises = codes.map(async (code) => {
-    try {
-      const resp = await fetch(
-        `https://push2.eastmoney.com/api/qt/stock/get?secid=${code}&fields=f43,f57,f58,f170,f169`
-      );
-      if (resp.ok) {
-        const j = await resp.json();
-        if (j.data) {
-          results[code] = {
-            price: j.data.f43 / 100,
-            change: j.data.f170 / 100, // %
-            name: j.data.f58
-          };
-        }
-      }
-    } catch(e) { /* ignore */ }
-  });
-  await Promise.all(promises);
+  // Use Sina script-tag approach (bypasses CORS, push2 is blocked)
+  const sinaCodes = codes.map(c => SINA_CODE_MAP[c]).filter(Boolean).join(',');
+  if (!sinaCodes) { marketSnapshot = results; return results; }
+
+  try {
+    const data = await fetchJsonpSina(sinaCodes);
+    if (data) {
+      codes.forEach(code => {
+        const sinaCode = SINA_CODE_MAP[code];
+        if (!sinaCode || !data[sinaCode]) return;
+        const entry = data[sinaCode];
+        results[code] = {
+          price: entry.price,
+          change: entry.change,
+          name: MARKET_INDICES[code].name
+        };
+      });
+    }
+  } catch(e) { /* ignore */ }
+
   marketSnapshot = results;
   return results;
+}
+
+// 新浪 API 通过 script 标签加载，数据成为全局变量
+function fetchJsonpSina(codesStr) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://hq.sinajs.cn/list=' + codesStr;
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Sina timeout'));
+    }, 8000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    script.onload = () => {
+      cleanup();
+      // Parse global vars: var hq_str_sh000300="name,open,yclose,price,..."
+      const result = {};
+      codesStr.split(',').forEach(code => {
+        const varName = 'hq_str_' + code;
+        const raw = window[varName];
+        if (raw) {
+          const parts = raw.split(',');
+          const yclose = parseFloat(parts[2]) || 0;
+          const price = parseFloat(parts[3]) || 0;
+          result[code] = {
+            name: parts[0],
+            price: price,
+            change: yclose > 0 ? ((price - yclose) / yclose * 100) : 0
+          };
+          delete window[varName]; // cleanup
+        }
+      });
+      resolve(result);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error('Sina load failed'));
+    };
+
+    document.head.appendChild(script);
+  });
 }
 
 // ============================================================
