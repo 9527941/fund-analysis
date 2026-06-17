@@ -2917,16 +2917,144 @@ function toggleNavExpand() {
 }
 
 // ============================================================
-// Investment Reference (AI-generated portfolio insights)
+// Market Snapshot — 实时大盘指数数据
+// ============================================================
+let marketSnapshot = null; // 缓存大盘快照
+
+const MARKET_INDICES = {
+  '1.000300': { name:'沪深300', type:'大盘价值' },
+  '1.000905': { name:'中证500', type:'中盘成长' },
+  '0.399006': { name:'创业板指', type:'成长' },
+  '1.000688': { name:'科创50',  type:'科技' },
+  '1.000001': { name:'上证指数', type:'综合' },
+  '0.399673': { name:'创业板50', type:'成长' }
+};
+
+async function fetchMarketSnapshot() {
+  const results = {};
+  const codes = Object.keys(MARKET_INDICES);
+  // 使用现有 fetch (push2 API 支持 CORS)
+  const promises = codes.map(async (code) => {
+    try {
+      const resp = await fetch(
+        `https://push2.eastmoney.com/api/qt/stock/get?secid=${code}&fields=f43,f57,f58,f170,f169`
+      );
+      if (resp.ok) {
+        const j = await resp.json();
+        if (j.data) {
+          results[code] = {
+            price: j.data.f43 / 100,
+            change: j.data.f170 / 100, // %
+            name: j.data.f58
+          };
+        }
+      }
+    } catch(e) { /* ignore */ }
+  });
+  await Promise.all(promises);
+  marketSnapshot = results;
+  return results;
+}
+
+// ============================================================
+// Market Analysis — 基于实时数据判断市场状态
+// ============================================================
+function analyzeMarket(market, codes, navResults, sectorData) {
+  // 1) 大盘涨跌方向
+  const hs300 = market['1.000300'] || {};
+  const cyb = market['0.399006'] || {};
+  const kc50 = market['1.000688'] || {};
+  const zz500 = market['1.000905'] || {};
+
+  const hsChange = hs300.change || 0;
+  const cybChange = cyb.change || 0;
+  const kcChange = kc50.change || 0;
+
+  // 2) 风格判断：成长 vs 价值
+  const growthChange = (cybChange + kcChange) / 2;
+  const valueChange = hsChange;
+  const styleBias = growthChange - valueChange;
+  const styleLabel = styleBias > 0.5 ? '成长占优' : (styleBias < -0.5 ? '价值占优' : '风格均衡');
+
+  // 3) 市场温度：基于持仓基金平均涨跌
+  const dayChanges = Object.values(navResults).filter(n => n).map(n => n.gszzl || 0);
+  const avgFundChange = dayChanges.length > 0 ? dayChanges.reduce((a,b)=>a+b,0) / dayChanges.length : 0;
+  const upCount = dayChanges.filter(c => c > 0).length;
+  const breadth = dayChanges.length > 0 ? upCount / dayChanges.length : 0;
+
+  // 4) 板块热度：从 sectorData 中找领涨/领跌板块
+  let topSector = null, topChange = -Infinity;
+  let bottomSector = null, bottomChange = Infinity;
+  if (sectorData) {
+    Object.entries(sectorData).forEach(([code, d]) => {
+      if (d.changeRate !== null && d.changeRate !== undefined) {
+        if (d.changeRate > topChange) { topChange = d.changeRate; topSector = d.name || code; }
+        if (d.changeRate < bottomChange) { bottomChange = d.changeRate; bottomSector = d.name || code; }
+      }
+    });
+  }
+
+  // 5) 市场情绪标签
+  let mood = '中性', moodDetail = '';
+  if (avgFundChange > 2 && breadth > 0.7) {
+    mood = '强势'; moodDetail = '市场情绪高涨，多数持仓上涨';
+  } else if (avgFundChange > 1) {
+    mood = '偏暖'; moodDetail = '市场整体向好，但追高需谨慎';
+  } else if (avgFundChange > 0) {
+    mood = '中性偏暖'; moodDetail = '小幅上涨，市场平稳';
+  } else if (avgFundChange > -1) {
+    mood = '中性偏弱'; moodDetail = '小幅回调，正常波动范围内';
+  } else if (avgFundChange > -3) {
+    mood = '弱势'; moodDetail = '跌幅较大，关注是否有利空消息';
+  } else {
+    mood = '恐慌'; moodDetail = '大幅下跌，保持冷静勿恐慌抛售';
+  }
+
+  // 6) 科技/成长赛道强弱判断
+  const techStrength = (kcChange > 0 && kcChange > hsChange) ? '强' :
+    (kcChange > 0) ? '偏强' : '弱';
+
+  // 7) 计算组合近5日趋势（基于 lastNavResults 中的历史数据）
+  let pnl5d = 0;
+  Object.entries(navResults).forEach(([code, nav]) => {
+    if (!nav) return;
+    const hist = HISTORY_RAW.funds[code] || [];
+    if (hist.length >= 5) {
+      const recent = hist[0].nav || 0;
+      const prior = hist[Math.min(4, hist.length-1)].nav || 0;
+      if (prior > 0) pnl5d += (recent - prior) / prior;
+    }
+  });
+  const trend5d = pnl5d > 0.02 ? '上升' : (pnl5d < -0.02 ? '下降' : '横盘');
+
+  return {
+    hsChange, cybChange, kcChange,
+    styleBias, styleLabel,
+    avgFundChange, breadth,
+    mood, moodDetail,
+    techStrength,
+    topSector, topChange,
+    bottomSector, bottomChange,
+    trend5d,
+    hs300Price: hs300.price || 0,
+    cybPrice: cyb.price || 0,
+    kc50Price: kc50.price || 0,
+    zz500Price: zz500.price || 0
+  };
+}
+
+// ============================================================
+// Investment Reference — 动态智能版 v20260617
 // ============================================================
 function buildInvestRef(codes, navResults) {
+  const m = marketSnapshot ? analyzeMarket(marketSnapshot, codes, navResults, sectorCache) : null;
+
   const fundCalcs = {};
   let totalInvest = 0, totalValue = 0, totalPnl = 0;
 
   codes.forEach(code => {
     const nav = navResults[code];
     if (!nav) return;
-    // Use confirmed NAV (dwjz) for consistent calculation
     const useNav = nav.dwjz || nav.gsz || 0;
     const calc = calcFund(code, useNav);
     fundCalcs[code] = calc;
@@ -2937,7 +3065,6 @@ function buildInvestRef(codes, navResults) {
 
   const totalRate = totalInvest > 0 ? (totalPnl / totalInvest) * 100 : 0;
 
-  // Sector exposure
   const sectors = {};
   Object.entries(fundCalcs).forEach(([code, calc]) => {
     const meta = FUND_META[code];
@@ -2948,60 +3075,97 @@ function buildInvestRef(codes, navResults) {
 
   let items = [];
 
-  // Overall assessment
-  if (totalRate > 20) {
-    items.push({ icon: "🔥", text: `组合整体盈利 <b>${formatRate(totalRate)}</b>，表现优异。当前处于获利丰厚区间，建议关注止盈纪律，避免利润大幅回吐。` });
-  } else if (totalRate > 0) {
-    items.push({ icon: "👍", text: `组合整体盈利 <b>${formatRate(totalRate)}</b>，持仓健康。可以继续按计划持有和定投。` });
-  } else if (totalRate > -10) {
-    items.push({ icon: "🔍", text: `组合轻微亏损 <b>${formatRate(totalRate)}</b>，仍在合理范围内。短期波动不必过度焦虑，关注持仓基金的基本面变化。` });
-  } else {
-    items.push({ icon: "⚠️", text: `组合亏损 <b>${formatRate(totalRate)}</b>，建议逐只审视每只基金的持有逻辑是否仍然成立。` });
+  // ===== 1) 大盘环境概览 =====
+  if (m) {
+    const moodEmoji = { '强势':'🔥','偏暖':'☀️','中性偏暖':'🌤️','中性':'🌥️','中性偏弱':'🌧️','弱势':'⛈️','恐慌':'🌪️' };
+    items.push({
+      icon: moodEmoji[m.mood] || '📊',
+      text: `<b>市场温度：${m.mood}</b> — ${m.moodDetail} · 沪深300 ${m.hsChange >= 0 ? '+' : ''}${m.hsChange.toFixed(2)}% · ${m.styleLabel} · 近5日组合趋势 <b>${m.trend5d}</b>`
+    });
   }
 
-  // Best/worst performer
+  // ===== 2) 组合整体评估 =====
+  if (totalRate > 30) {
+    items.push({ icon: "🔥", text: `组合盈利 <b>${formatRate(totalRate)}</b>，获利丰厚。强烈建议设置止盈线（如回撤5%止损），避免利润大幅回吐。` });
+  } else if (totalRate > 15) {
+    items.push({ icon: "✨", text: `组合盈利 <b>${formatRate(totalRate)}</b>，表现优异。可以考虑分批止盈部分仓位，锁定利润。` });
+  } else if (totalRate > 0) {
+    items.push({ icon: "👍", text: `组合盈利 <b>${formatRate(totalRate)}</b>，持仓健康。当前市场${m ? m.mood : '中性'}，按计划持有即可。` });
+  } else if (totalRate > -10) {
+    items.push({ icon: "🔍", text: `组合轻微亏损 <b>${formatRate(totalRate)}</b>，在正常波动范围内${m && m.mood === '弱势' ? '。当前市场偏弱，耐心等待反弹' : ''}。` });
+  } else {
+    items.push({ icon: "⚠️", text: `组合亏损 <b>${formatRate(totalRate)}</b>。建议逐只审视持仓逻辑${m && m.mood === '恐慌' ? '，恐慌性下跌往往是好公司的买入机会' : ''}。` });
+  }
+
+  // ===== 3) 基金个体分析 =====
   let bestCode = null, bestRate = -Infinity;
   let worstCode = null, worstRate = Infinity;
   Object.entries(fundCalcs).forEach(([code, calc]) => {
     if (calc.pnlRate > bestRate) { bestRate = calc.pnlRate; bestCode = code; }
     if (calc.pnlRate < worstRate) { worstRate = calc.pnlRate; worstCode = code; }
   });
-  if (bestCode) {
-    items.push({ icon: "🏆", text: `表现最佳：<b>${FUND_DATA[bestCode].name}</b>，收益率 ${formatRate(bestRate)}。表现最弱：<b>${FUND_DATA[worstCode].name}</b>，收益率 ${formatRate(worstRate)}。` });
+  if (bestCode && bestCode !== worstCode) {
+    items.push({ icon: "🏆", text: `表现最佳：<b>${FUND_DATA[bestCode].name}</b> (${formatRate(bestRate)}) · 最弱：<b>${FUND_DATA[worstCode].name}</b> (${formatRate(worstRate)})` });
   }
 
-  // Sector concentration warning
+  // ===== 4) 行业/风格分析 =====
+  if (m && m.styleBias > 1) {
+    // 成长风格明显占优时
+    const growthFunds = codes.filter(c => ['科创人工智能','半导体材料设备','国证半导体芯片'].includes(FUND_META[c]?.sector));
+    if (growthFunds.length > 0) {
+      items.push({ icon: "🚀", text: `<b>成长风格占优</b> (科创50 ${m.kcChange >= 0 ? '+' : ''}${m.kcChange.toFixed(2)}%)。你的成长型持仓处于风口，短期可积极持有，但注意风格切换风险。` });
+    }
+  } else if (m && m.styleBias < -0.5) {
+    items.push({ icon: "🛡️", text: `当前<b>价值风格占优</b>，成长股承压。如果科创/半导体持仓占比高，短期可能跑输大盘，中长期逻辑不变则无需恐慌。` });
+  }
+
+  // ===== 5) 板块集中度 =====
   const semiSector = sectors["半导体"];
   if (semiSector && semiSector.value / totalValue > 0.4) {
-    items.push({ icon: "📊", text: `半导体行业占比过高（${(semiSector.value/totalValue*100).toFixed(0)}%），行业集中度风险突出。如果看好半导体长期趋势可以容忍，但需做好大幅波动的心理准备。` });
+    const semiPnlRate = semiSector.value > 0 ? (semiSector.pnl / (semiSector.value - semiSector.pnl)) * 100 : 0;
+    items.push({ icon: "📊", text: `半导体行业占比 ${(semiSector.value/totalValue*100).toFixed(0)}%${semiPnlRate < -10 ? '，且该板块亏损较大。如果你对半导体长期有信心可以持有，但建议控制在总仓位50%以内' : '，集中度风险较高'}` });
   }
 
-  // Diversification tip
-  if (codes.length <= 3) {
-    items.push({ icon: "💡", text: `当前仅持有 ${codes.length} 只基金，可以考虑在熟悉的赛道内适当分散，降低单只基金的管理风险。` });
+  // ===== 6) 基于实时数据的操作建议 =====
+  if (m) {
+    if (m.breadth >= 0.75) {
+      items.push({ icon: "💡", text: `今日持仓<b>${Math.round(m.breadth*100)}%</b>上涨，赚钱效应强。此时不宜追涨，已有盈利的可以考虑部分止盈。` });
+    } else if (m.breadth <= 0.25) {
+      items.push({ icon: "🎯", text: `今日持仓仅<b>${Math.round(m.breadth*100)}%</b>上涨，普跌行情。如果你对手中基金的长期逻辑有信心，回调反而是逢低加仓的机会。` });
+    }
+
+    if (m.trend5d === '下降' && totalRate > 0) {
+      items.push({ icon: "📉", text: `近5日趋势向下但组合仍盈利，说明前期积累较多。建议关注回撤幅度，设置<b>移动止盈</b>保护利润。` });
+    }
   }
 
-  // DCA suggestion
-  items.push({ icon: "📝", text: `定投策略建议：对于你重仓的半导体板块，坚持定投可以有效摊平成本。如果单日跌幅超过3%，可以考虑手动加仓一笔。` });
+  // ===== 7) 可关注机会（非持仓）— 基于实时数据动态推荐 =====
+  items.push({ icon: "--", text: "<b>🔭 可关注机会（非持仓）— 实时动态推荐：</b>" });
 
-  // --- 可关注机会（非持仓） ---
-  items.push({ icon: "--", text: "<b>🔭 可关注机会（非持仓）：</b>" });
+  // 板块轮动推荐逻辑
+  if (m && m.topSector && m.topChange > 1) {
+    items.push({ icon: "🔥", text: `<b>领涨板块：${m.topSector}</b> (${m.topChange > 0 ? '+' : ''}${m.topChange.toFixed(2)}%)。如果该板块不在你的持仓中且趋势持续性好，可以研究相关基金。但追涨需谨慎！` });
+  }
 
-  // Check what sectors we're missing
-  const heldSectors = Object.values(fundCalcs).map(c => {
-    const meta = FUND_META[Object.keys(FUND_DATA).find(k => FUND_DATA[k] === c)] || {};
-    return "";
-  });
-  
-  items.push({ icon: "🏥", text: "<b>医药/创新药ETF</b> — 医药板块已调整较深，估值处于历史低位。虽然短期看不到催化剂，但作为防御+进攻兼顾的赛道，适合小仓位左侧布局。可关注：<b>易方达沪深300医药ETF联接</b>。" });
+  // 固定推荐组合，但加上实时数据佐证
+  const heldSectors = new Set(Object.values(FUND_META).map(m => m.sector));
+  if (!heldSectors.has('医药')) {
+    const reason = m && m.styleBias < 0 ? '当前价值风格占优，医药作为防御板块适配' : '医药板块与你的科技持仓相关性低，分散效果明显';
+    items.push({ icon: "🏥", text: `<b>医药/创新药ETF</b> — ${reason}。可关注<b>易方达沪深300医药ETF联接</b>。` });
+  }
+  if (!heldSectors.has('消费')) {
+    items.push({ icon: "🛒", text: `<b>消费ETF</b> — 消费板块目前不在你的持仓中，与科技赛道相关性低。${m && m.styleBias > 1 ? '当前成长风格较强，消费可作防御配比' : '作为经济复苏主线值得关注'}。可关注<b>招商中证白酒/主要消费ETF</b>。` });
+  }
 
-  items.push({ icon: "🌐", text: "<b>恒生科技ETF</b> — 港股科技股估值偏低，中国互联网巨头（腾讯、阿里、美团等）盈利能力回升。如果开通了港股通权限，可以关注<b>恒生科技ETF</b>作为AI+消费互联网的互补配置。" });
+  // 固收类始终推荐
+  items.push({ icon: "🛡️", text: `<b>短债/固收+基金</b> — 组合目前权益类占比高，${totalRate > 10 ? '在获利后配置部分固收产品可锁定利润' : '配置20%固收可有效降低组合波动'}。` });
 
-  items.push({ icon: "🛡️", text: "<b>短债/固收+基金</b> — 组合目前100%权益类，缺乏缓冲垫。建议将20%仓位投入<b>中短债基金</b>或<b>固收+</b>产品，年化2-4%的稳定收益可以在权益市场大跌时保护你的心态。" });
-
-  items.push({ icon: "🏭", text: "<b>高端制造/军工</b> — 如果不想增加赛道数量但想分散行业，可以关注<b>高端制造或军工主题基金</b>。这两个板块与半导体、AI相关性较低，能真正起到分散效果。" });
-
-  items.push({ icon: "📊", text: "<b>沪深300指数增强</b> — 与其精选行业赛道，不如直接配置一只<b>沪深300指数增强基金</b>。它覆盖了市场最核心的300家公司，不用担心选错赛道的问题。" });
+  // 最后一个动态推荐
+  if (m && m.kcChange > 0.5) {
+    items.push({ icon: "🌐", text: `<b>恒生科技/港股通ETF</b> — 科技赛道活跃，港股科技股估值相对A股更低。如果开通港股通，可作为AI投资的双市场覆盖。` });
+  } else {
+    items.push({ icon: "📊", text: `<b>沪深300指数增强</b> — 如果选赛道太累，不如直接配置指数增强基金，覆盖最核心的300家公司。` });
+  }
 
   let html = "";
   items.forEach(item => {
@@ -3011,38 +3175,63 @@ function buildInvestRef(codes, navResults) {
 }
 
 // ============================================================
-// Cross-Channel Investment Opportunities
+// Cross-Channel Investment Opportunities — 动态智能版 v20260617
 // ============================================================
 function buildCrossChannel(codes, navResults) {
-  const fundCalcs = {};
-  Object.entries(FUND_DATA).forEach(([code]) => {
-    const nav = navResults[code];
-    if (!nav) return;
-    fundCalcs[code] = calcFund(code, nav.dwjz || nav.gsz || 0);
-  });
-
+  const m = marketSnapshot ? analyzeMarket(marketSnapshot, codes, navResults, sectorCache) : null;
   const items = [];
 
-  // Idea 1: Based on current market sentiment
-  const dayChanges = Object.values(navResults).filter(n => n).map(n => n.gszzl);
-  const avgChange = dayChanges.length > 0 ? dayChanges.reduce((a, b) => a + b, 0) / dayChanges.length : 0;
-
-  if (avgChange > 1) {
-    items.push({ tag: "hot", tagText: "市场偏暖", title: "市场整体偏暖，注意追高风险", desc: "今日组合平均涨幅较大，短期追高需谨慎。可以考虑等待回调再追加仓位。" });
-  } else if (avgChange < -1) {
-    items.push({ tag: "watch", tagText: "关注机会", title: "市场回调中，关注逢低布局", desc: "今日组合整体下跌，如果持仓逻辑不变，回调可能是加仓的好时机。" });
+  // ===== 1) 市场情绪信号 =====
+  if (m) {
+    if (m.avgFundChange > 1.5) {
+      items.push({ tag: "hot", tagText: "追高风险", title: `持仓平均涨 ${m.avgFundChange.toFixed(1)}%，注意追高风险`,
+        desc: `${Math.round(m.breadth*100)}%的持仓上涨，短期情绪偏热。如果计划加仓，建议等待回调3-5%后再操作。` });
+    } else if (m.avgFundChange > 0) {
+      items.push({ tag: "info", tagText: "市场平稳", title: `持仓微涨 ${m.avgFundChange.toFixed(1)}%，市场温和`,
+        desc: `风格：${m.styleLabel} · 科创50: ${m.kcChange >= 0 ? '+' : ''}${m.kcChange.toFixed(2)}% · 正常定投即可` });
+    } else if (m.avgFundChange > -2) {
+      items.push({ tag: "watch", tagText: "关注机会", title: `持仓回调 ${m.avgFundChange.toFixed(1)}%，可能有布局机会`,
+        desc: `如果不是基本面变化导致的下跌，回调可能是加仓窗口。沪深300: ${m.hsChange >= 0 ? '+' : ''}${m.hsChange.toFixed(2)}%` });
+    } else {
+      items.push({ tag: "watch", tagText: "大幅回调", title: `持仓大跌 ${m.avgFundChange.toFixed(1)}%，保持冷静`,
+        desc: `大幅波动时不要恐慌操作。先确认是否有利空消息，如果持仓逻辑不变，急跌往往是布局良机。` });
+    }
   }
 
-  // Idea 2: Sector rotation
-  items.push({ tag: "info", tagText: "赛道观察", title: "保持对AI和半导体的主线关注", desc: "你持有的AI和半导体是当前市场核心主线。关注政策面和产业动态，这两个赛道的长期逻辑依然坚实。" });
+  // ===== 2) 板块轮动观察 =====
+  if (m && m.topSector) {
+    items.push({ tag: "info", tagText: "板块观察", title: `今日领涨：${m.topSector} (${m.topChange >= 0 ? '+' : ''}${m.topChange.toFixed(2)}%)`,
+      desc: `领跌：${m.bottomSector || '--'} · 风格偏向：${m.styleLabel}。关注板块轮动持续性，判断是否为主线切换。` });
+  }
 
-  // Idea 3: Cash management
-  items.push({ tag: "info", tagText: "资金管理", title: "闲置资金可考虑货币基金或短债", desc: "等待布局机会的闲置资金，可以放在货币基金或短债基金中，年化约1.5-2.5%，流动性好且风险低。" });
+  // ===== 3) 资金管理 =====
+  const totalInvest = Object.values(FUND_DATA).reduce((sum, f) => {
+    return sum + (f.transactions || []).filter(t => t.type.includes('买入')).reduce((s, t) => s + t.amount, 0);
+  }, 0);
+  items.push({ tag: "info", tagText: "资金管理", title: `组合总投资 ¥${totalInvest.toLocaleString()}${m ? ' · 市场温度：' + m.mood : ''}`,
+    desc: `闲置资金可放货币基金或短债(年化1.5-2.5%)，利用定投纪律分散建仓风险。${m && m.mood === '恐慌' ? '恐慌时更应保留弹药，不要一把梭。' : ''}` });
 
-  // Idea 4: based on portfolio
+  // ===== 4) 组合优化 =====
   const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c].sectorCN === "半导体");
   if (semiCodes.length >= 2) {
-    items.push({ tag: "watch", tagText: "优化建议", title: "两只半导体基金可考虑整合", desc: `你持有 ${semiCodes.length} 只半导体基金（${semiCodes.map(c => FUND_DATA[c].name.split(' ')[0]).join('、')}），可考虑集中到表现更好的一只以简化管理。` });
+    // Compare performance
+    const perfs = semiCodes.map(c => {
+      const calc = calcFund(c, (navResults[c]?.dwjz || navResults[c]?.gsz || 0));
+      return { code: c, name: FUND_DATA[c].name, rate: calc.pnlRate };
+    }).sort((a,b) => b.rate - a.rate);
+    items.push({ tag: "watch", tagText: "优化建议", title: `${semiCodes.length}只半导体基金可考虑整合`,
+      desc: `${perfs[0].name.split(' ')[0]}(${formatRate(perfs[0].rate)})表现最优 · ${perfs[perfs.length-1].name.split(' ')[0]}(${formatRate(perfs[perfs.length-1].rate)})最弱。整合到一只可降低管理成本。` });
+  }
+
+  // ===== 5) 动态择时提醒 =====
+  if (m) {
+    if (m.trend5d === '下降' && m.breadth < 0.3) {
+      items.push({ tag: "watch", tagText: "择时提醒", title: "连续走弱，关注止盈/止损",
+        desc: "近5日趋势下行且多数持仓下跌。如果已有盈利，建议设置移动止盈线（如从最高点回撤5%即卖出）。" });
+    } else if (m.trend5d === '上升' && m.breadth > 0.7) {
+      items.push({ tag: "hot", tagText: "趋势跟踪", title: "组合趋势向好，持有为主",
+        desc: "近5日上升趋势明显，此时不宜频繁操作。做好定投计划，耐心等待复利效应。" });
+    }
   }
 
   let html = "";
@@ -3164,7 +3353,8 @@ async function renderSequential() {
   // 单基金选择初始化
   initSingleFundSelect(codes);
 
-  // 投资参考 & 跨渠道机会
+  // 获取大盘快照 → 投资参考 & 跨渠道机会
+  await fetchMarketSnapshot();
   buildInvestRef(codes, lastNavResults);
   buildCrossChannel(codes, lastNavResults);
 
@@ -3408,6 +3598,7 @@ async function slowPollAll(codes) {
   buildHoldingsTable(codes, lastNavResults, sectorData);
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
   recalcSummary(codes);
+  await fetchMarketSnapshot();
   buildInvestRef(codes, lastNavResults);
   buildCrossChannel(codes, lastNavResults);
 
@@ -3453,6 +3644,7 @@ async function refreshAll() {
   buildRealizedPnLTable();
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
   recalcSummary(codes);
+  await fetchMarketSnapshot();
   buildInvestRef(codes, lastNavResults);
   buildCrossChannel(codes, lastNavResults);
 
