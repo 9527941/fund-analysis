@@ -3435,6 +3435,11 @@ function updateFundRowOnly(code, nav) {
     }
     break;
   }
+
+  // 如果当前打开了该基金的单基金详情，自动刷新
+  if (code === currentSingleFundCode) {
+    populateSingleFund();
+  }
 }
 
 // ============================================================
