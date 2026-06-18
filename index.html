@@ -1337,7 +1337,6 @@
       <button class="time-range-btn active" onclick="switchTimeRange('3m')">近3月</button>
       <button class="time-range-btn" onclick="switchTimeRange('6m')">近6月</button>
       <button class="time-range-btn" onclick="switchTimeRange('1y')">近1年</button>
-      <button class="time-range-btn" onclick="switchTimeRange('3y')">近3年</button>
     </div>
     <!-- Performance summary cards -->
     <div class="perf-summary" id="perfSummary"></div>
@@ -2644,7 +2643,7 @@ function switchTimeRange(range) {
   currentTimeRange = range;
   document.querySelectorAll(".time-range-btn").forEach(b => {
     b.classList.remove("active");
-    if (b.textContent.includes({ "1m": "近1月", "3m": "近3月", "6m": "近6月", "1y": "近1年", "3y": "近3年" }[range])) {
+    if (b.textContent.includes({ "1m": "近1月", "3m": "近3月", "6m": "近6月", "1y": "近1年" }[range])) {
       b.classList.add("active");
     }
   });
@@ -2814,7 +2813,7 @@ function buildFundPerformanceChart(code, range) {
 
   // Filter by time range
   const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
-  const daysMap = { "1m": 30, "3m": 90, "6m": 180, "1y": 365, "3y": 1095 };
+  const daysMap = { "1m": 30, "3m": 90, "6m": 180, "1y": 365 };
   const cutoffDays = daysMap[range] || 90;
   const cutoff = new Date(sorted[sorted.length - 1].date);
   cutoff.setDate(cutoff.getDate() - cutoffDays);
