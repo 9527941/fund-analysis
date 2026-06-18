@@ -3002,7 +3002,6 @@ function buildNavHistoryTable(code) {
 
   // Sort descending by date (newest first)
   const sorted = [...arr].sort((a, b) => b.date.localeCompare(a.date));
-  allNavData = withChange;
 
   // Calculate daily change (rate compared to previous day)
   const withChange = [];
@@ -3018,6 +3017,9 @@ function buildNavHistoryTable(code) {
     }
     withChange.push({ ...sorted[i], changeStr, changeCls });
   }
+
+  // Save for expand/collapse toggling
+  allNavData = withChange;
 
   renderNavRows(withChange);
   // Always show expand button if > 10 rows
