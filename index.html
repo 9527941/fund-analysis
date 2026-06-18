@@ -2791,9 +2791,17 @@ function buildPerfSummary(history) {
 
 function buildFundPerformanceChart(code, range) {
   try {
+  // Replace canvas to avoid Chart.js reuse issues
+  if (singleFundChart) { singleFundChart.destroy(); singleFundChart = null; }
+  const oldCanvas = document.getElementById("singleFundChart");
+  if (!oldCanvas) return;
+  const parent = oldCanvas.parentNode;
+  const newCanvas = document.createElement("canvas");
+  newCanvas.id = "singleFundChart";
+  parent.replaceChild(newCanvas, oldCanvas);
+  const ctx = newCanvas.getContext("2d");
+
   const history = HISTORY_RAW.funds[code];
-  const ctx = document.getElementById("singleFundChart").getContext("2d");
-  if (singleFundChart) singleFundChart.destroy();
 
   if (!history || history.length < 2) {
     singleFundChart = new Chart(ctx, { type: "line", data: { labels: [], datasets: [] } });
