@@ -2806,7 +2806,11 @@ function buildFundPerformanceChart(code, range) {
   cutoff.setDate(cutoff.getDate() - cutoffDays);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
   const filtered = sorted.filter(d => d.date >= cutoffStr);
-  if (filtered.length < 2) return;
+  if (filtered.length < 2) {
+    // 数据不足时清空图表，避免残留旧数据
+    singleFundChart = new Chart(ctx, { type: "line", data: { labels: [], datasets: [] } });
+    return;
+  }
 
   // Calculate cost line
   const calc = calcFund(code, lastNavResults[code] ? (lastNavResults[code].dwjz || lastNavResults[code].gsz || filtered[filtered.length - 1].nav) : filtered[filtered.length - 1].nav);
