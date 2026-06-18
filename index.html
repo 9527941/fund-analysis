@@ -3206,7 +3206,13 @@ function buildInvestRef(codes, navResults) {
 
   // 板块轮动推荐逻辑
   if (m && m.topSector && m.topChange > 1) {
-    items.push({ icon: "🔥", text: `<b>领涨板块：${m.topSector}</b> (${m.topChange > 0 ? '+' : ''}${m.topChange.toFixed(2)}%)。如果该板块不在你的持仓中且趋势持续性好，可以研究相关基金。但追涨需谨慎！` });
+    const heldSectorCNs = new Set(Object.values(FUND_META).map(v => v.sectorCN));
+    const heldSectorNames = new Set(Object.values(FUND_META).map(v => v.sector));
+    const holdingTop = heldSectorCNs.has(m.topSector) || heldSectorNames.has(m.topSector);
+    const topMsg = holdingTop
+      ? `<b>领涨板块：${m.topSector}</b> (${m.topChange > 0 ? '+' : ''}${m.topChange.toFixed(2)}%) — 该板块已在你的持仓中，今日表现强势`
+      : `<b>领涨板块：${m.topSector}</b> (${m.topChange > 0 ? '+' : ''}${m.topChange.toFixed(2)}%)。该板块不在你的持仓中，如果趋势持续性好可以研究相关基金。但追涨需谨慎！`;
+    items.push({ icon: "🔥", text: topMsg });
   }
 
   // 固定推荐组合，但加上实时数据佐证
