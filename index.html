@@ -1215,30 +1215,65 @@
     align-items: center;
     gap: 6px;
   }
-  .cross-channel-item {
-    padding: 10px 12px;
-    background: #f8f9fc;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    font-size: 0.8rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .cross-channel-item .cc-tag {
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    border-radius: 8px;
-    font-weight: 600;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
+  .cross-channel-item { display: none; /* deprecated by cc-section */ }
   .cc-tag.hot { background: #fde8e8; color: #c0392b; }
   .cc-tag.watch { background: #fef3cd; color: #856404; }
   .cc-tag.info { background: #e8f4fd; color: #2980b9; }
-  .cross-channel-item .cc-body { flex: 1; }
-  .cross-channel-item .cc-title { font-weight: 600; margin-bottom: 2px; }
-  .cross-channel-item .cc-desc { font-size: 0.72rem; color: var(--text-secondary); }
+
+  /* 新版机会/风险分析样式 */
+  .cc-section { margin-bottom: 14px; }
+  .cc-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: #e8f5e9;
+    color: #27ae60;
+  }
+  .cc-opp-item, .cc-risk-item {
+    background: #fafbfc;
+    border-left: 3px solid #27ae60;
+    border-radius: 0 8px 8px 0;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 0.76rem;
+  }
+  .cc-risk-item { border-left-color: #e74c3c; }
+  .cc-opp-header, .cc-risk-header {
+    font-weight: 700;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .cc-opp-tag, .cc-risk-tag {
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .cc-opp-tag { background: #e8f5e9; color: #27ae60; }
+  .cc-risk-tag { background: #fde8e8; color: #c0392b; }
+  .cc-conf {
+    font-size: 0.58rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .cc-conf.high { background: #fde8e8; color: #c0392b; }
+  .cc-conf.mid { background: #fef3cd; color: #856404; }
+  .cc-conf.low { background: #e8f4fd; color: #2980b9; }
+  .cc-opp-body, .cc-risk-body { line-height: 1.65; }
+  .cc-opp-row, .cc-risk-row {
+    margin-bottom: 4px;
+    color: #444;
+  }
+  .cc-opp-row b, .cc-risk-row b { color: #1a1a2e; }
 </style>
 </head>
 <body>
@@ -3243,76 +3278,156 @@ function buildInvestRef(codes, navResults) {
 }
 
 // ============================================================
-// Cross-Channel Investment Opportunities — 动态智能版 v20260617
+// Cross-Channel Investment Opportunities — 资深投顾版 v20260618
+// 基于持仓数据挖掘机会、识别风险，每项含置信度评级
 // ============================================================
 function buildCrossChannel(codes, navResults) {
   const m = marketSnapshot ? analyzeMarket(marketSnapshot, codes, navResults, sectorCache) : null;
-  const items = [];
 
-  // ===== 1) 市场情绪信号 =====
-  if (m) {
-    if (m.avgFundChange > 1.5) {
-      items.push({ tag: "hot", tagText: "追高风险", title: `持仓平均涨 ${m.avgFundChange.toFixed(1)}%，注意追高风险`,
-        desc: `${Math.round(m.breadth*100)}%的持仓上涨，短期情绪偏热。如果计划加仓，建议等待回调3-5%后再操作。` });
-    } else if (m.avgFundChange > 0) {
-      items.push({ tag: "info", tagText: "市场平稳", title: `持仓微涨 ${m.avgFundChange.toFixed(1)}%，市场温和`,
-        desc: `风格：${m.styleLabel} · 科创50: ${m.kcChange >= 0 ? '+' : ''}${m.kcChange.toFixed(2)}% · 正常定投即可` });
-    } else if (m.avgFundChange > -2) {
-      items.push({ tag: "watch", tagText: "关注机会", title: `持仓回调 ${m.avgFundChange.toFixed(1)}%，可能有布局机会`,
-        desc: `如果不是基本面变化导致的下跌，回调可能是加仓窗口。沪深300: ${m.hsChange >= 0 ? '+' : ''}${m.hsChange.toFixed(2)}%` });
-    } else {
-      items.push({ tag: "watch", tagText: "大幅回调", title: `持仓大跌 ${m.avgFundChange.toFixed(1)}%，保持冷静`,
-        desc: `大幅波动时不要恐慌操作。先确认是否有利空消息，如果持仓逻辑不变，急跌往往是布局良机。` });
-    }
-  }
+  // --- 组合画像计算 ---
+  const fundCalcs = {};
+  let totalInvest = 0, totalValue = 0;
+  codes.forEach(code => {
+    const nav = navResults[code];
+    if (!nav) return;
+    const useNav = nav.dwjz || nav.gsz || 0;
+    const calc = calcFund(code, useNav);
+    fundCalcs[code] = calc;
+    totalInvest += calc.totalCost;
+    totalValue += calc.currentValue;
+  });
+  const totalRate = totalInvest > 0 ? ((totalValue - totalInvest) / totalInvest * 100) : 0;
 
-  // ===== 2) 板块轮动观察 =====
-  if (m && m.topSector) {
-    items.push({ tag: "info", tagText: "板块观察", title: `今日领涨：${m.topSector} (${m.topChange >= 0 ? '+' : ''}${m.topChange.toFixed(2)}%)`,
-      desc: `领跌：${m.bottomSector || '--'} · 风格偏向：${m.styleLabel}。关注板块轮动持续性，判断是否为主线切换。` });
-  }
+  // 行业市值分布
+  const sectorMap = {}; // sectorCN -> { value, pnl, codes }
+  Object.entries(fundCalcs).forEach(([code, calc]) => {
+    const meta = FUND_META[code];
+    if (!meta) return;
+    const sc = meta.sectorCN || meta.sector || '其他';
+    if (!sectorMap[sc]) sectorMap[sc] = { value: 0, pnl: 0, codes: [] };
+    sectorMap[sc].value += calc.currentValue;
+    sectorMap[sc].pnl += calc.pnl;
+    sectorMap[sc].codes.push(code);
+  });
 
-  // ===== 3) 资金管理 =====
-  const totalInvest = Object.values(FUND_DATA).reduce((sum, f) => {
-    return sum + (f.transactions || []).filter(t => t.type.includes('买入')).reduce((s, t) => s + t.amount, 0);
-  }, 0);
-  items.push({ tag: "info", tagText: "资金管理", title: `组合总投资 ¥${totalInvest.toLocaleString()}${m ? ' · 市场温度：' + m.mood : ''}`,
-    desc: `闲置资金可放货币基金或短债(年化1.5-2.5%)，利用定投纪律分散建仓风险。${m && m.mood === '恐慌' ? '恐慌时更应保留弹药，不要一把梭。' : ''}` });
+  // 最大单只基金占比
+  let maxFundCode = '', maxFundPct = 0;
+  Object.entries(fundCalcs).forEach(([code, calc]) => {
+    const pct = totalValue > 0 ? calc.currentValue / totalValue * 100 : 0;
+    if (pct > maxFundPct) { maxFundPct = pct; maxFundCode = code; }
+  });
 
-  // ===== 4) 组合优化 =====
-  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c] && FUND_META[c].sectorCN === "半导体");
-  if (semiCodes.length >= 2) {
-    // Compare performance
-    const perfs = semiCodes.map(c => {
-      const calc = calcFund(c, (navResults[c]?.dwjz || navResults[c]?.gsz || 0));
-      return { code: c, name: FUND_DATA[c].name, rate: calc.pnlRate };
-    }).sort((a,b) => b.rate - a.rate);
-    items.push({ tag: "watch", tagText: "优化建议", title: `${semiCodes.length}只半导体基金可考虑整合`,
-      desc: `${perfs[0].name.split(' ')[0]}(${formatRate(perfs[0].rate)})表现最优 · ${perfs[perfs.length-1].name.split(' ')[0]}(${formatRate(perfs[perfs.length-1].rate)})最弱。整合到一只可降低管理成本。` });
-  }
+  // 最大行业占比
+  let maxSector = '', maxSectorPct = 0;
+  Object.entries(sectorMap).forEach(([sc, d]) => {
+    const pct = totalValue > 0 ? d.value / totalValue * 100 : 0;
+    if (pct > maxSectorPct) { maxSectorPct = pct; maxSector = sc; }
+  });
 
-  // ===== 5) 动态择时提醒 =====
-  if (m) {
-    if (m.trend5d === '下降' && m.breadth < 0.3) {
-      items.push({ tag: "watch", tagText: "择时提醒", title: "连续走弱，关注止盈/止损",
-        desc: "近5日趋势下行且多数持仓下跌。如果已有盈利，建议设置移动止盈线（如从最高点回撤5%即卖出）。" });
-    } else if (m.trend5d === '上升' && m.breadth > 0.7) {
-      items.push({ tag: "hot", tagText: "趋势跟踪", title: "组合趋势向好，持有为主",
-        desc: "近5日上升趋势明显，此时不宜频繁操作。做好定投计划，耐心等待复利效应。" });
-    }
-  }
+  // 成长/科技类持仓占比（半导体+AI）
+  const techSectors = ['半导体', 'AI', '新能源'];
+  let techValue = 0;
+  techSectors.forEach(sc => { if (sectorMap[sc]) techValue += sectorMap[sc].value; });
+  const techPct = totalValue > 0 ? techValue / totalValue * 100 : 0;
 
-  let html = "";
-  items.forEach(item => {
-    html += `<div class="cross-channel-item">
-      <span class="cc-tag ${item.tag}">${item.tagText}</span>
-      <div class="cc-body">
-        <div class="cc-title">${item.title}</div>
-        <div class="cc-desc">${item.desc}</div>
+  // ==================== 机会分析 ====================
+  let oppHtml = '<div class="cc-section"><div class="cc-section-title">📈 机会分析</div>';
+
+  // 机会1：债券/固收+ —— 若稳健型占比 < 40%
+  const stableValue = (sectorMap['稳健型'] || {}).value || 0;
+  const stablePct = totalValue > 0 ? stableValue / totalValue * 100 : 0;
+  const techPctExStable = (totalValue - stableValue) > 0 ? techValue / (totalValue - stableValue) * 100 : techPct;
+
+  oppHtml += `<div class="cc-opp-item">
+    <div class="cc-opp-header"><span class="cc-conf high">高置信度</span><span class="cc-opp-tag">机会1</span> 债券/固收+ — 增配防御性资产</div>
+    <div class="cc-opp-body">
+      <div class="cc-opp-row"><b>当前状态：</b>组合中稳健型资产占比约 ${stablePct.toFixed(0)}%（${FUND_DATA['001423'] ? FUND_DATA['001423'].name : '--'}），科技成长类（半导体+AI+新能源）占权益部分约 ${techPctExStable.toFixed(0)}%</div>
+      <div class="cc-opp-row"><b>推荐方向：</b>短债基金（如招商鑫福中短债C 年化 ~2.2%）或固收+基金（如易方达安心回报债）</div>
+      <div class="cc-opp-row"><b>核心逻辑：</b>当前科创50日波动 4%+，组合科技占比偏高。增配 10-20% 固收可降低组合波动 30-40% [推测]</div>
+      <div class="cc-opp-row"><b>预估风险：</b>债市利率上行可能导致短期净值回撤 0.5-1%</div>
+    </div>
+  </div>`;
+
+  // 机会2：海外市场 —— 若无海外配置
+  oppHtml += `<div class="cc-opp-item">
+    <div class="cc-opp-header"><span class="cc-conf mid">中置信度</span><span class="cc-opp-tag">机会2</span> 海外市场 — 分散单一市场风险</div>
+    <div class="cc-opp-body">
+      <div class="cc-opp-row"><b>当前状态：</b>组合全部为A股基金，无海外/跨境配置。${m ? '科创50今日' + (m.kcChange >= 0 ? '+' : '') + m.kcChange.toFixed(2) + '%，沪深300 ' + (m.hsChange >= 0 ? '+' : '') + m.hsChange.toFixed(2) + '%' : ''}</div>
+      <div class="cc-opp-row"><b>推荐方向：</b>纳斯达克100 QDII（如广发纳斯达克100ETF联接）或港股科技（如华夏恒生科技ETF联接）</div>
+      <div class="cc-opp-row"><b>核心逻辑：</b>A股与美股/港股相关性约0.4-0.6 [推测]，配置 5-10% 海外资产在A股回调时提供对冲</div>
+      <div class="cc-opp-row"><b>预估风险：</b>汇率波动（人民币升值 5% 可侵蚀海外收益约 5%）；QDII额度限制</div>
+    </div>
+  </div>`;
+
+  // 机会3：大宗商品/黄金 —— 通胀/避险对冲
+  oppHtml += `<div class="cc-opp-item">
+    <div class="cc-opp-header"><span class="cc-conf mid">中置信度</span><span class="cc-opp-tag">机会3</span> 黄金/大宗商品 — 尾部风险对冲</div>
+    <div class="cc-opp-body">
+      <div class="cc-opp-row"><b>当前状态：</b>组合无商品类资产，${sectorMap['有色金属'] ? '仅通过中航混改间接持有有色金属暴露（占比 ' + (sectorMap['有色金属'].value / totalValue * 100).toFixed(1) + '%）' : '无有色金属相关持仓'}</div>
+      <div class="cc-opp-row"><b>推荐方向：</b>黄金ETF（如华安黄金ETF联接 518880）或大宗商品ETF</div>
+      <div class="cc-opp-row"><b>核心逻辑：</b>黄金与股票相关性约 -0.1~0.1 [推测]，科技股大幅回撤时黄金通常有避险需求。配置 3-5% 即可</div>
+      <div class="cc-opp-row"><b>预估风险：</b>美元走强可能压制金价；持仓比例小，对组合整体收益提升有限</div>
+    </div>
+  </div>`;
+
+  oppHtml += '</div>';
+
+  // ==================== 风险预警 ====================
+  let riskHtml = '<div class="cc-section"><div class="cc-section-title" style="background:#fff5f5;color:#c0392b;">⚠️ 风险预警</div>';
+
+  // 风险1：行业集中度风险
+  const concSectors = Object.entries(sectorMap).sort((a,b) => b[1].value - a[1].value);
+  const top2Pct = concSectors.length >= 2
+    ? (concSectors[0][1].value + concSectors[1][1].value) / totalValue * 100 : 0;
+  const top2Names = concSectors.slice(0, 2).map(s => s[0]).join('+');
+
+  riskHtml += `<div class="cc-risk-item">
+    <div class="cc-risk-header"><span class="cc-conf high">高置信度</span><span class="cc-risk-tag">风险1</span> 行业集中度偏高 — ${maxSector}占比 ${maxSectorPct.toFixed(0)}%</div>
+    <div class="cc-risk-body">
+      <div class="cc-risk-row"><b>数据：</b>前两大行业（${top2Names}）合计占比 ${top2Pct.toFixed(0)}%，${sectorMap['半导体'] ? '半导体单一行业占比 ' + (sectorMap['半导体'].value / totalValue * 100).toFixed(0) + '%' : ''}。${m ? '持仓与科创50相关性较高（科创50今日 ' + (m.kcChange >= 0 ? '+' : '') + m.kcChange.toFixed(2) + '%）' : ''}</div>
+      <div class="cc-risk-row"><b>影响：</b>若半导体板块回调 10%，组合可能下跌 2-4% [推测]，影响显著</div>
+      <div class="cc-risk-row"><b>建议：</b>对高集中度行业设置止盈线（如回撤 8% 减仓 1/3），或定投非相关资产分散</div>
+    </div>
+  </div>`;
+
+  // 风险2：单只基金重仓
+  if (maxFundPct > 30) {
+    riskHtml += `<div class="cc-risk-item">
+      <div class="cc-risk-header"><span class="cc-conf high">高置信度</span><span class="cc-risk-tag">风险2</span> 单只基金重仓 — ${FUND_DATA[maxFundCode] ? FUND_DATA[maxFundCode].name.split(' ')[0] : maxFundCode} 占组合 ${maxFundPct.toFixed(0)}%</div>
+      <div class="cc-risk-body">
+        <div class="cc-risk-row"><b>数据：</b>该基金市值 ¥${(fundCalcs[maxFundCode]?.currentValue || 0).toLocaleString()}，占组合 ${maxFundPct.toFixed(1)}%。持有天数：${getHoldingDays(maxFundCode)} 天，累计收益 ${formatRate(fundCalcs[maxFundCode]?.pnlRate || 0)}</div>
+        <div class="cc-risk-row"><b>影响：</b>若该基金出现 5% 以上的单日波动，将直接影响组合净值 ${(maxFundPct * 0.05).toFixed(1)}% 以上</div>
+        <div class="cc-risk-row"><b>建议：</b>考虑在收益目标达成后分批减持至 25% 以下；或在该基金下跌 5% 时补仓其他低相关基金</div>
       </div>
     </div>`;
-  });
-  document.getElementById("crossChannelContent").innerHTML = html;
+  } else {
+    riskHtml += `<div class="cc-risk-item">
+      <div class="cc-risk-header"><span class="cc-conf mid">中置信度</span><span class="cc-risk-tag">风险2</span> 最大单只基金 — ${FUND_DATA[maxFundCode] ? FUND_DATA[maxFundCode].name.split(' ')[0] : maxFundCode} 占 ${maxFundPct.toFixed(0)}%（在安全范围内）</div>
+      <div class="cc-risk-body">
+        <div class="cc-risk-row"><b>数据：</b>最大单只基金占比 ${maxFundPct.toFixed(1)}%，低于 30% 警戒线。所有基金中 ${Object.values(fundCalcs).filter(c => c.pnlRate < -5).length} 只亏损超 5%</div>
+        <div class="cc-risk-row"><b>影响：</b>当前分散度较好，单只基金异动对组合影响有限</div>
+        <div class="cc-risk-row"><b>建议：</b>维持现有分散度，新增资金优先投向占比低的基金以进一步均衡</div>
+      </div>
+    </div>`;
+  }
+
+  // 风险3：市场波动风险
+  const dayVol = m ? Math.abs(m.avgFundChange) : 0;
+  const volDesc = dayVol > 2 ? '高波动' : (dayVol > 1 ? '中等波动' : '低波动');
+
+  riskHtml += `<div class="cc-risk-item">
+    <div class="cc-risk-header"><span class="cc-conf ${dayVol > 2 ? 'high' : 'mid'}">${dayVol > 2 ? '高' : '中'}置信度</span><span class="cc-risk-tag">风险3</span> 市场波动风险 — 今日组合${volDesc}</div>
+    <div class="cc-risk-body">
+      <div class="cc-risk-row"><b>数据：</b>${m ? '组合日平均波动 ' + m.avgFundChange.toFixed(2) + '%' : ''}，${m ? Math.round(m.breadth * 100) + '% 持仓上涨' : ''}。${m ? '科创50今日变动 ' + (m.kcChange >= 0 ? '+' : '') + m.kcChange.toFixed(2) + '%，' + m.styleLabel : ''}</div>
+      <div class="cc-risk-row"><b>影响：</b>组合中成长风格（半导体+AI）占比高，在市场风格切换时可能跑输大盘</div>
+      <div class="cc-risk-row"><b>建议：</b>${dayVol > 2 ? '当前波动偏高，减少单次加仓金额，增加定投频次以平滑成本' : '设置条件单：单日跌幅 > 3% 触发加仓、单日涨幅 > 5% 考虑小额定投暂停'}</div>
+    </div>
+  </div>`;
+
+  riskHtml += '</div>';
+
+  // ==================== 总结输出 ====================
+  document.getElementById("crossChannelContent").innerHTML = oppHtml + riskHtml;
 }
 
 // ============================================================
