@@ -3295,9 +3295,8 @@ async function init() {
     } catch(e) { console.warn("NAV cache load failed:", e); }
     document.getElementById("navStatus").textContent = "正在获取实时净值...";
     await render();
-    // Initialize DCA after data is loaded
+    // Initialize DCA after data is loaded (collapsed by default)
     initDCAFunds();
-    setTimeout(runDCASim, 500);
     // Start 3-minute auto-refresh
     startAutoRefresh();
   } catch (e) {
