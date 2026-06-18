@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-17T14:55:00+08:00",
+  "updated": "2026-06-18T15:43:00+08:00",
   "funds": {
     "013841": {
       "name": "银华集成电路混合C",
@@ -65,7 +65,8 @@
       "dividendType": "红利再投资",
       "transactions": [
         { "date": "2026-06-05", "type": "买入", "amount": 2000.0, "shares": 2205.31, "nav": 0.9069, "fee": 0 },
-        { "date": "2026-06-10", "type": "买入", "amount": 1000.0, "shares": 1134.81, "nav": 0.8812, "fee": 0 }
+        { "date": "2026-06-10", "type": "买入", "amount": 1000.0, "shares": 1134.81, "nav": 0.8812, "fee": 0 },
+        { "date": "2026-06-18", "type": "买入", "amount": 1000.0, "fee": 0, "pending": true }
       ]
     },
     "016186": {
@@ -73,7 +74,8 @@
       "shortName": "广发电力",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-06-10", "type": "买入", "amount": 2000.0, "shares": 1706.48, "nav": 1.1720, "fee": 0 }
+        { "date": "2026-06-10", "type": "买入", "amount": 2000.0, "shares": 1706.48, "nav": 1.1720, "fee": 0 },
+        { "date": "2026-06-18", "type": "买入", "amount": 1000.0, "fee": 0, "pending": true }
       ]
     }
   }
