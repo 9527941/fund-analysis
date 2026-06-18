@@ -3274,7 +3274,7 @@ function buildCrossChannel(codes, navResults) {
     desc: `闲置资金可放货币基金或短债(年化1.5-2.5%)，利用定投纪律分散建仓风险。${m && m.mood === '恐慌' ? '恐慌时更应保留弹药，不要一把梭。' : ''}` });
 
   // ===== 4) 组合优化 =====
-  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c].sectorCN === "半导体");
+  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c] && FUND_META[c].sectorCN === "半导体");
   if (semiCodes.length >= 2) {
     // Compare performance
     const perfs = semiCodes.map(c => {
@@ -3418,8 +3418,8 @@ async function renderSequential() {
 
   // 获取大盘快照 → 投资参考 & 跨渠道机会
   await fetchMarketSnapshot();
-  buildInvestRef(codes, lastNavResults);
-  buildCrossChannel(codes, lastNavResults);
+  try { buildInvestRef(codes, lastNavResults); } catch(e) { console.warn("buildInvestRef failed:", e); }
+  try { buildCrossChannel(codes, lastNavResults); } catch(e) { console.warn("buildCrossChannel failed:", e); }
 
   const now = new Date();
   document.getElementById("reportDate").textContent =
@@ -3667,8 +3667,8 @@ async function slowPollAll(codes) {
   buildHoldingsTable(codes, lastNavResults, sectorData);
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
   recalcSummary(codes);
-  buildInvestRef(codes, lastNavResults);
-  buildCrossChannel(codes, lastNavResults);
+  try { buildInvestRef(codes, lastNavResults); } catch(e) { console.warn("buildInvestRef failed:", e); }
+  try { buildCrossChannel(codes, lastNavResults); } catch(e) { console.warn("buildCrossChannel failed:", e); }
 
   const now = new Date();
   document.getElementById("refreshTimer").textContent =
@@ -3713,8 +3713,8 @@ async function refreshAll() {
   buildRealizedPnLTable();
   document.getElementById("quickGlance").innerHTML = buildQuickGlance(codes, lastNavResults);
   recalcSummary(codes);
-  buildInvestRef(codes, lastNavResults);
-  buildCrossChannel(codes, lastNavResults);
+  try { buildInvestRef(codes, lastNavResults); } catch(e) { console.warn("buildInvestRef failed:", e); }
+  try { buildCrossChannel(codes, lastNavResults); } catch(e) { console.warn("buildCrossChannel failed:", e); }
 
   const confirmed = codes.filter(c => fundNavConfirmed[c]).length;
   startSmartPolling(codes, confirmed, codes.length);
