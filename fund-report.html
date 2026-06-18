@@ -1191,30 +1191,26 @@
     align-items: center;
     gap: 6px;
   }
-  .cross-channel-item {
-    padding: 10px 12px;
-    background: #f8f9fc;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    font-size: 0.8rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .cross-channel-item .cc-tag {
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    border-radius: 8px;
-    font-weight: 600;
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
+  .cross-channel-item { display: none; /* deprecated */ }
   .cc-tag.hot { background: #fde8e8; color: #c0392b; }
   .cc-tag.watch { background: #fef3cd; color: #856404; }
   .cc-tag.info { background: #e8f4fd; color: #2980b9; }
-  .cross-channel-item .cc-body { flex: 1; }
-  .cross-channel-item .cc-title { font-weight: 600; margin-bottom: 2px; }
-  .cross-channel-item .cc-desc { font-size: 0.72rem; color: var(--text-secondary); }
+
+  .cc-section { margin-bottom: 14px; }
+  .cc-section-title { font-size: 0.85rem; font-weight: 700; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; background: #e8f5e9; color: #27ae60; }
+  .cc-opp-item, .cc-risk-item { background: #fafbfc; border-left: 3px solid #27ae60; border-radius: 0 8px 8px 0; padding: 10px 12px; margin-bottom: 8px; font-size: 0.76rem; }
+  .cc-risk-item { border-left-color: #e74c3c; }
+  .cc-opp-header, .cc-risk-header { font-weight: 700; font-size: 0.8rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .cc-opp-tag, .cc-risk-tag { font-size: 0.6rem; padding: 1px 6px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+  .cc-opp-tag { background: #e8f5e9; color: #27ae60; }
+  .cc-risk-tag { background: #fde8e8; color: #c0392b; }
+  .cc-conf { font-size: 0.58rem; padding: 1px 5px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
+  .cc-conf.high { background: #fde8e8; color: #c0392b; }
+  .cc-conf.mid { background: #fef3cd; color: #856404; }
+  .cc-conf.low { background: #e8f4fd; color: #2980b9; }
+  .cc-opp-body, .cc-risk-body { line-height: 1.65; }
+  .cc-opp-row, .cc-risk-row { margin-bottom: 4px; color: #444; }
+  .cc-opp-row b, .cc-risk-row b { color: #1a1a2e; }
 </style>
 </head>
 <body>
@@ -3155,48 +3151,77 @@ function buildInvestRef(codes, navResults) {
 // Cross-Channel Investment Opportunities
 // ============================================================
 function buildCrossChannel(codes, navResults) {
+  // --- 组合画像计算 ---
   const fundCalcs = {};
-  Object.entries(FUND_DATA).forEach(([code]) => {
+  let totalInvest = 0, totalValue = 0;
+  codes.forEach(code => {
     const nav = navResults[code];
     if (!nav) return;
-    fundCalcs[code] = calcFund(code, nav.gsz);
+    const useNav = nav.dwjz || nav.gsz || 0;
+    const calc = calcFund(code, useNav);
+    fundCalcs[code] = calc;
+    totalInvest += calc.totalCost;
+    totalValue += calc.currentValue;
   });
 
-  const items = [];
-
-  // Idea 1: Based on current market sentiment
-  const dayChanges = Object.values(navResults).filter(n => n).map(n => n.gszzl);
-  const avgChange = dayChanges.length > 0 ? dayChanges.reduce((a, b) => a + b, 0) / dayChanges.length : 0;
-
-  if (avgChange > 1) {
-    items.push({ tag: "hot", tagText: "市场偏暖", title: "市场整体偏暖，注意追高风险", desc: "今日组合平均涨幅较大，短期追高需谨慎。可以考虑等待回调再追加仓位。" });
-  } else if (avgChange < -1) {
-    items.push({ tag: "watch", tagText: "关注机会", title: "市场回调中，关注逢低布局", desc: "今日组合整体下跌，如果持仓逻辑不变，回调可能是加仓的好时机。" });
-  }
-
-  // Idea 2: Sector rotation
-  items.push({ tag: "info", tagText: "赛道观察", title: "保持对AI和半导体的主线关注", desc: "你持有的AI和半导体是当前市场核心主线。关注政策面和产业动态，这两个赛道的长期逻辑依然坚实。" });
-
-  // Idea 3: Cash management
-  items.push({ tag: "info", tagText: "资金管理", title: "闲置资金可考虑货币基金或短债", desc: "等待布局机会的闲置资金，可以放在货币基金或短债基金中，年化约1.5-2.5%，流动性好且风险低。" });
-
-  // Idea 4: based on portfolio
-  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c] && FUND_META[c].sectorCN === "半导体");
-  if (semiCodes.length >= 2) {
-    items.push({ tag: "watch", tagText: "优化建议", title: "两只半导体基金可考虑整合", desc: `你持有 ${semiCodes.length} 只半导体基金（${semiCodes.map(c => FUND_DATA[c].name.split(' ')[0]).join('、')}），可考虑集中到表现更好的一只以简化管理。` });
-  }
-
-  let html = "";
-  items.forEach(item => {
-    html += `<div class="cross-channel-item">
-      <span class="cc-tag ${item.tag}">${item.tagText}</span>
-      <div class="cc-body">
-        <div class="cc-title">${item.title}</div>
-        <div class="cc-desc">${item.desc}</div>
-      </div>
-    </div>`;
+  // 行业市值分布
+  const sectorMap = {};
+  Object.entries(fundCalcs).forEach(([code, calc]) => {
+    const meta = FUND_META[code];
+    if (!meta) return;
+    const sc = meta.sectorCN || meta.sector || '其他';
+    if (!sectorMap[sc]) sectorMap[sc] = { value: 0, pnl: 0, codes: [] };
+    sectorMap[sc].value += calc.currentValue;
+    sectorMap[sc].pnl += calc.pnl;
+    sectorMap[sc].codes.push(code);
   });
-  document.getElementById("crossChannelContent").innerHTML = html;
+
+  // 最大单只基金占比
+  let maxFundCode = '', maxFundPct = 0;
+  Object.entries(fundCalcs).forEach(([code, calc]) => {
+    const pct = totalValue > 0 ? calc.currentValue / totalValue * 100 : 0;
+    if (pct > maxFundPct) { maxFundPct = pct; maxFundCode = code; }
+  });
+
+  // 成长/科技类持仓占比
+  const techSectors = ['半导体', 'AI', '新能源'];
+  let techValue = 0;
+  techSectors.forEach(sc => { if (sectorMap[sc]) techValue += sectorMap[sc].value; });
+  const techPct = totalValue > 0 ? techValue / totalValue * 100 : 0;
+
+  // ==================== 机会分析 ====================
+  let oppHtml = '<div class="cc-section"><div class="cc-section-title">📈 机会分析</div>';
+
+  const stableValue = (sectorMap['稳健型'] || {}).value || 0;
+  const stablePct = totalValue > 0 ? stableValue / totalValue * 100 : 0;
+  const techPctExStable = (totalValue - stableValue) > 0 ? techValue / (totalValue - stableValue) * 100 : techPct;
+
+  oppHtml += '<div class="cc-opp-item"><div class="cc-opp-header"><span class="cc-conf high">高置信度</span><span class="cc-opp-tag">机会1</span> 债券/固收+ — 增配防御性资产</div><div class="cc-opp-body"><div class="cc-opp-row"><b>当前状态：</b>组合中稳健型资产占比约 ' + stablePct.toFixed(0) + '%，科技成长类占权益部分约 ' + techPctExStable.toFixed(0) + '%</div><div class="cc-opp-row"><b>推荐方向：</b>短债基金（如招商鑫福中短债C 年化 ~2.2%）或固收+基金</div><div class="cc-opp-row"><b>核心逻辑：</b>科技组合波动大，增配固收可降低波动 [推测]</div><div class="cc-opp-row"><b>预估风险：</b>债市利率上行可能导致短期净值回撤 0.5-1%</div></div></div>';
+
+  oppHtml += '<div class="cc-opp-item"><div class="cc-opp-header"><span class="cc-conf mid">中置信度</span><span class="cc-opp-tag">机会2</span> 海外市场 — 分散单一市场风险</div><div class="cc-opp-body"><div class="cc-opp-row"><b>当前状态：</b>组合全部为A股基金，无海外/跨境配置</div><div class="cc-opp-row"><b>推荐方向：</b>纳斯达克100 QDII 或港股科技ETF</div><div class="cc-opp-row"><b>核心逻辑：</b>A股与海外市场相关性约0.4-0.6 [推测]，配置5-10%提供对冲</div><div class="cc-opp-row"><b>预估风险：</b>汇率波动；QDII额度限制</div></div></div>';
+
+  oppHtml += '<div class="cc-opp-item"><div class="cc-opp-header"><span class="cc-conf mid">中置信度</span><span class="cc-opp-tag">机会3</span> 黄金/大宗商品 — 尾部风险对冲</div><div class="cc-opp-body"><div class="cc-opp-row"><b>当前状态：</b>组合无商品类资产，' + (sectorMap['有色金属'] ? '仅通过中航混改间接持有有色金属（占比' + (sectorMap['有色金属'].value/totalValue*100).toFixed(1) + '%）' : '无相关持仓') + '</div><div class="cc-opp-row"><b>推荐方向：</b>黄金ETF（华安黄金ETF联接 518880）</div><div class="cc-opp-row"><b>核心逻辑：</b>黄金与股票相关性约 -0.1~0.1 [推测]，可作避险配置</div><div class="cc-opp-row"><b>预估风险：</b>美元走强可能压制金价</div></div></div>';
+
+  oppHtml += '</div>';
+
+  // ==================== 风险预警 ====================
+  let riskHtml = '<div class="cc-section"><div class="cc-section-title" style="background:#fff5f5;color:#c0392b;">⚠️ 风险预警</div>';
+
+  const concSectors = Object.entries(sectorMap).sort((a,b) => b[1].value - a[1].value);
+  const top2Pct = concSectors.length >= 2 ? (concSectors[0][1].value + concSectors[1][1].value) / totalValue * 100 : 0;
+  const top2Names = concSectors.slice(0,2).map(s=>s[0]).join('+');
+  let maxSector = '', maxSectorPct = 0;
+  Object.entries(sectorMap).forEach(([sc,d]) => { const p=totalValue>0?d.value/totalValue*100:0; if(p>maxSectorPct){maxSectorPct=p;maxSector=sc;} });
+
+  riskHtml += '<div class="cc-risk-item"><div class="cc-risk-header"><span class="cc-conf high">高置信度</span><span class="cc-risk-tag">风险1</span> 行业集中度偏高</div><div class="cc-risk-body"><div class="cc-risk-row"><b>数据：</b>前两大行业（' + top2Names + '）合计占比 ' + top2Pct.toFixed(0) + '%</div><div class="cc-risk-row"><b>影响：</b>若半导体板块回调10%，组合可能下跌2-4% [推测]</div><div class="cc-risk-row"><b>建议：</b>对高集中度行业设置止盈线，或定投非相关资产分散</div></div></div>';
+
+  riskHtml += '<div class="cc-risk-item"><div class="cc-risk-header"><span class="cc-conf ' + (maxFundPct>30?'high':'mid') + '">' + (maxFundPct>30?'高':'中') + '置信度</span><span class="cc-risk-tag">风险2</span> 最大单只基金占比 ' + maxFundPct.toFixed(0) + '%</div><div class="cc-risk-body"><div class="cc-risk-row"><b>数据：</b>' + (FUND_DATA[maxFundCode] ? FUND_DATA[maxFundCode].name.split(' ')[0] : maxFundCode) + ' 占组合 ' + maxFundPct.toFixed(1) + '%</div><div class="cc-risk-row"><b>影响：</b>' + (maxFundPct>30?'单只异动影响组合显著':'当前分散度尚可') + '</div><div class="cc-risk-row"><b>建议：</b>' + (maxFundPct>30?'考虑分批减持至25%以下':'维持现有分散度') + '</div></div></div>';
+
+  riskHtml += '<div class="cc-risk-item"><div class="cc-risk-header"><span class="cc-conf mid">中置信度</span><span class="cc-risk-tag">风险3</span> 科技风格过度暴露</div><div class="cc-risk-body"><div class="cc-risk-row"><b>数据：</b>半导体+AI+新能源占组合约 ' + techPct.toFixed(0) + '%</div><div class="cc-risk-row"><b>影响：</b>风格切换时可能跑输大盘</div><div class="cc-risk-row"><b>建议：</b>单日跌幅>3%触发加仓，涨幅>5%考虑小额定投暂停</div></div></div>';
+
+  riskHtml += '</div>';
+
+  document.getElementById("crossChannelContent").innerHTML = oppHtml + riskHtml;
 }
 
 // ============================================================
