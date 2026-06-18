@@ -2825,20 +2825,8 @@ function buildFundPerformanceChart(code, range) {
     return;
   }
 
-  // Calculate cost line
-  const lastNav = lastNavResults[code];
-  const fallbackNav = filtered[filtered.length - 1].nav || 0;
-  const useNav = lastNav ? (lastNav.dwjz || lastNav.gsz || fallbackNav) : fallbackNav;
-  const calc = calcFund(code, useNav);
-  const costNav = calc.avgCost;
-
   // Use ABSOLUTE NAV values (not normalized to 100)
   const fundData = filtered.map(d => ({ x: d.date.slice(5), y: d.nav }));
-  // Cost line (horizontal, only need 2 points)
-  const costLine = filtered.length >= 2 ? [
-    { x: filtered[0].date.slice(5), y: costNav },
-    { x: filtered[filtered.length - 1].date.slice(5), y: costNav }
-  ] : [];
 
   // For longer ranges, reduce point markers to avoid clutter
   const shouldShowPoints = filtered.length <= 60;
@@ -2852,23 +2840,14 @@ function buildFundPerformanceChart(code, range) {
           data: fundData,
           borderColor: "#e74c3c",
           backgroundColor: "rgba(231,76,60,0.08)",
-          fill: true,
+          fill: false,
           tension: 0.05,
           pointRadius: shouldShowPoints ? 1.5 : 0,
           pointHoverRadius: 4,
           pointBackgroundColor: "#e74c3c",
           borderWidth: 1.8
-        },
-        {
-          label: "持仓成本 " + costNav.toFixed(4),
-          data: costLine,
-          borderColor: "#3498db",
-          borderDash: [10, 5],
-          fill: false,
-          tension: 0,
-          pointRadius: 0,
-          borderWidth: 2
         }
+        // cost line temporarily removed for debugging
       ]
     },
     options: {
