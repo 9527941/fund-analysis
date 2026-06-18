@@ -2825,19 +2825,24 @@ function buildFundPerformanceChart(code, range) {
     return;
   }
 
-  // Calculate cost line
-  const lastNav = lastNavResults[code];
-  const fallbackNav = filtered[filtered.length - 1].nav || 0;
-  const useNav = lastNav ? (lastNav.dwjz || lastNav.gsz || fallbackNav) : fallbackNav;
-  const calc = calcFund(code, useNav);
-  const costNav = calc.avgCost;
+  // Calculate cost line (only if fund data exists)
+  let costLine = [], costNav = 0;
+  if (FUND_DATA[code]) {
+    const lastNav = lastNavResults[code];
+    const fallbackNav = filtered[filtered.length - 1].nav || 0;
+    const useNav = lastNav ? (lastNav.dwjz || lastNav.gsz || fallbackNav) : fallbackNav;
+    const calc = calcFund(code, useNav);
+    costNav = calc.avgCost;
+    if (costNav > 0) {
+      costLine = [
+        { x: filtered[0].date.slice(2), y: costNav },
+        { x: filtered[filtered.length - 1].date.slice(2), y: costNav }
+      ];
+    }
+  }
 
   // Use ABSOLUTE NAV values (not normalized to 100)
   const fundData = filtered.map(d => ({ x: d.date.slice(2), y: d.nav }));
-  const costLine = costNav > 0 ? [
-    { x: filtered[0].date.slice(2), y: costNav },
-    { x: filtered[filtered.length - 1].date.slice(2), y: costNav }
-  ] : [];
 
   // For longer ranges, reduce point markers to avoid clutter
   const shouldShowPoints = filtered.length <= 60;
