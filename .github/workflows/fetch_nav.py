@@ -259,6 +259,9 @@ def main():
     if not report_updated:
         print("  No fund-report.html updates needed")
 
+    # 4. 更新板块行情数据（sector-data.json）
+    fetch_sector_data()
+
 
 def update_embedded_nav(funds_data):
     """更新 fund-report.html 中的 EMBEDDED_NAV 数据"""
@@ -362,3 +365,4 @@ def fetch_sector_data():
 
 if __name__ == "__main__":
     main()
+
