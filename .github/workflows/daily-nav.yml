@@ -1,6 +1,6 @@
 name: Update Fund NAV Data
 # v3 - 优化cron覆盖 + 修复去重逻辑 (2026-06-17)
-# 调度说明(全部北京时间):
+# ���度说明(全部北京时间):
 #   20:00, 21:00, 22:00, 23:00  (周一~周五)  收盘后密集轮询
 #   00:30, 06:00               (周二~周六)       次日补漏
 #   手动触发 + push 触发         随时可执行
@@ -83,7 +83,7 @@ for c in sorted(d['funds']):
         run: |
           git config user.name "fund-bot"
           git config user.email "fund-bot[bot]@users.noreply.github.com"
-          git add data/fund-nav.json index.html fund-report.html
+          git add data/fund-nav.json index.html fund-report.html data/sector-data.json
           if git diff --cached --quiet; then
             echo "No changes to commit (HTML also unchanged)"
           else
