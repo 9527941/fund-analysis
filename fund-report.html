@@ -2907,7 +2907,7 @@ function buildFundPerformanceChart(code, range) {
   if (filtered.length < 2) return;
 
   // Use ABSOLUTE NAV values (not normalized to 100)
-  const fundData = filtered.map(d => ({ x: d.date.slice(5), y: d.nav }));
+  const fundData = filtered.map(d => ({ x: d.date.slice(2), y: d.nav }));
 
   // For longer ranges, reduce point markers to avoid clutter
   const shouldShowPoints = filtered.length <= 60;
