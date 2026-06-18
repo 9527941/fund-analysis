@@ -2834,8 +2834,11 @@ function buildFundPerformanceChart(code, range) {
 
   // Use ABSOLUTE NAV values (not normalized to 100)
   const fundData = filtered.map(d => ({ x: d.date.slice(5), y: d.nav }));
-  // Cost line
-  const costLine = filtered.map(d => ({ x: d.date.slice(5), y: costNav }));
+  // Cost line (horizontal, only need 2 points)
+  const costLine = filtered.length >= 2 ? [
+    { x: filtered[0].date.slice(5), y: costNav },
+    { x: filtered[filtered.length - 1].date.slice(5), y: costNav }
+  ] : [];
 
   // For longer ranges, reduce point markers to avoid clutter
   const shouldShowPoints = filtered.length <= 60;
