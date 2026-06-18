@@ -2906,8 +2906,19 @@ function buildFundPerformanceChart(code, range) {
   const filtered = sorted.filter(d => d.date >= cutoffStr);
   if (filtered.length < 2) return;
 
+  // Calculate cost line
+  const lastNav = lastNavResults[code];
+  const fallbackNav = filtered[filtered.length - 1].nav || 0;
+  const useNav = lastNav ? (lastNav.dwjz || lastNav.gsz || fallbackNav) : fallbackNav;
+  const calc = calcFund(code, useNav);
+  const costNav = calc.avgCost;
+
   // Use ABSOLUTE NAV values (not normalized to 100)
   const fundData = filtered.map(d => ({ x: d.date.slice(2), y: d.nav }));
+  const costLine = costNav > 0 ? [
+    { x: filtered[0].date.slice(2), y: costNav },
+    { x: filtered[filtered.length - 1].date.slice(2), y: costNav }
+  ] : [];
 
   // For longer ranges, reduce point markers to avoid clutter
   const shouldShowPoints = filtered.length <= 60;
@@ -2927,13 +2938,18 @@ function buildFundPerformanceChart(code, range) {
           pointHoverRadius: 4,
           pointBackgroundColor: "#e74c3c",
           borderWidth: 1.8
-        }
-        // cost line temporarily removed for debugging
-      ]
+        },
+        {
+          label: "持仓成本 " + costNav.toFixed(4),
+          data: costLine,
+          borderColor: "#888",
+          borderDash: [8, 4],
+          fill: false,
           tension: 0,
           pointRadius: 0,
-          borderWidth: 2
+          borderWidth: 1.5
         }
+      ]
       ]
     },
     options: {
@@ -2981,7 +2997,7 @@ function buildNavHistoryTable(code) {
 
   // Sort descending by date (newest first)
   const sorted = [...arr].sort((a, b) => b.date.localeCompare(a.date));
-  allNavData = sorted;
+  allNavData = withChange;
 
   // Calculate daily change (rate compared to previous day)
   const withChange = [];
