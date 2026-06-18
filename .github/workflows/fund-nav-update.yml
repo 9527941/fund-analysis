@@ -33,5 +33,5 @@ jobs:
       - run: |
           git config user.name "fund-bot"
           git config user.email "fund-bot[bot]@users.noreply.github.com"
-          git add data/fund-nav.json index.html fund-report.html
+          git add data/fund-nav.json index.html fund-report.html data/sector-data.json
           git diff --cached --quiet || (git commit -m "auto: update fund data" && git push)
