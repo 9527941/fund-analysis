@@ -1,10 +1,15 @@
 {
-  "updateTime": "2026-06-20T10:16:55",
+  "updateTime": "2026-06-20T10:21:36",
   "boards": {
     "90.BK1036": {
       "name": "半导体",
       "price": 326494,
       "changeRate": 2.43
+    },
+    "90.BK0459": {
+      "name": "元件",
+      "price": 7287567,
+      "changeRate": 1.87
     },
     "90.BK0478": {
       "name": "有色金属",
@@ -20,6 +25,11 @@
       "name": "电力",
       "price": 2017099,
       "changeRate": -3.98
+    },
+    "90.BK0493": {
+      "name": "新能源",
+      "price": 1894728,
+      "changeRate": -2.06
     }
   }
 }
