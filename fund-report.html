@@ -1218,7 +1218,7 @@
 <div class="header">
   <h1>📊 每日基金持仓分析</h1>
   <div class="date" id="reportDate">--</div>
-  <div class="nav-time"><span class="live-dot"></span><span id="navStatus">正在获取实时净值...</span></div>
+  <div class="nav-time"><span class="live-dot"></span><span id="navStatus">正在获取实时净值...</span> · <span id="dataVersion" style="font-size:0.7rem;color:#888;">--</span></div>
 </div>
 
 <div class="dividend-warn" id="dividendWarn">
@@ -3253,6 +3253,9 @@ async function init() {
     if (navResp.ok) {
       const navData = await navResp.json();
       NAV_CACHE = navData.funds || {};
+      if (navData.updated) {
+        document.getElementById("dataVersion").textContent = "净值数据截止 " + navData.updated;
+      }
     }
   } catch(e) {
     console.warn("[init] NAV cache failed, using embedded:", e.message || e);
