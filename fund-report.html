@@ -4,6 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>每日基金持仓分析报告</title>
+<script>
+(function(){
+  if (location.search.indexOf('_autoRefresh=') !== -1) return;
+  var KEY = 'fund_nav_version';
+  try {
+    var lastVer = localStorage.getItem(KEY);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'data/fund-nav.json?t=' + Date.now(), true);
+    xhr.timeout = 5000;
+    xhr.onload = function() {
+      try {
+        var d = JSON.parse(xhr.responseText);
+        var newVer = d.updated || 'unknown';
+        if (lastVer && lastVer !== newVer) {
+          localStorage.setItem(KEY, newVer);
+          location.replace(location.pathname + '?_autoRefresh=' + Date.now());
+        } else if (!lastVer) {
+          localStorage.setItem(KEY, newVer);
+        }
+      } catch(e) {}
+    };
+    xhr.send();
+  } catch(e) {}
+})();
+</script>
 <style>
   :root {
     --bg: #f0f2f5;
