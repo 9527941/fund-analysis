@@ -2808,8 +2808,8 @@ function populateSingleFund() {
 
   detail.classList.add("show");
   } catch(e) {
-    DIAG.push('popSingleFund:' + code + ':' + e.message);
-    if (detail) detail.innerHTML += '<p style="color:red;padding:8px;">错误: ' + e.message + '</p>';
+    DIAG.push('popSingleFund:' + e.message);
+    showDiag("populateSingleFund错误: " + e.message, "#f8d7da");
   }
 }
 
