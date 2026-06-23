@@ -2944,10 +2944,10 @@ function buildNavHistoryTable(code) {
 
   // Sort descending by date (newest first)
   const sorted = [...arr].sort((a, b) => b.date.localeCompare(a.date));
-  allNavData = withChange;
 
   // Calculate daily change (rate compared to previous day)
   const withChange = [];
+  allNavData = withChange;
   for (let i = 0; i < sorted.length; i++) {
     let changeStr = "--", changeCls = "";
     if (i < sorted.length - 1) {
