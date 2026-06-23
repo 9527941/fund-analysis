@@ -1,35 +1,30 @@
 {
-  "updateTime": "2026-06-22T22:29:25",
+  "updateTime": "2026-06-23T13:50:16",
   "boards": {
     "90.BK1036": {
       "name": "半导体",
-      "price": 330111,
-      "changeRate": 1.11
-    },
-    "90.BK0459": {
-      "name": "元件",
-      "price": 7274467,
-      "changeRate": -0.18
+      "price": 333255,
+      "changeRate": 0.95
     },
     "90.BK0478": {
       "name": "有色金属",
-      "price": 3251188,
-      "changeRate": 3.88
+      "price": 3108085,
+      "changeRate": -4.4
     },
     "90.BK0800": {
       "name": "人工智能",
-      "price": 184153,
-      "changeRate": 0.84
+      "price": 184482,
+      "changeRate": 0.18
     },
     "90.BK0428": {
       "name": "电力",
-      "price": 2019775,
-      "changeRate": 0.13
+      "price": 2018968,
+      "changeRate": -0.04
     },
     "90.BK0493": {
       "name": "新能源",
-      "price": 1909132,
-      "changeRate": 0.76
+      "price": 1897021,
+      "changeRate": -0.63
     }
   }
 }
