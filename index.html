@@ -2652,15 +2652,21 @@ let allNavData = [];
 function initSingleFundSelect(codes) {
   console.log("[DEBUG] initSingleFundSelect called, codes:", codes);
   const sel = document.getElementById("singleFundSelect");
-  if (!sel) { console.error("[DEBUG] singleFundSelect element NOT FOUND!"); return; }
-  if (!FUND_DATA || Object.keys(FUND_DATA).length === 0) { console.error("[DEBUG] FUND_DATA is empty!"); return; }
-  sel.innerHTML = '<option value="">-- 请选择一只基金 --</option>';
+  if (!sel) { 
+    var errEl = document.getElementById("navStatus");
+    if (errEl) errEl.textContent += " | ERR:select not found";
+    return; 
+  }
+  if (!FUND_DATA || Object.keys(FUND_DATA).length === 0) { 
+    sel.innerHTML = '<option value="">-- FUND_DATA为空 (' + (typeof FUND_DATA) + ' keys=' + (FUND_DATA ? Object.keys(FUND_DATA).length : 0) + ') --</option>';
+    return; 
+  }
+  sel.innerHTML = '<option value="">-- 请选择一只基金 (' + codes.length + '只) --</option>';
   codes.forEach(code => {
     const f = FUND_DATA[code];
-    if (!f) { console.error("[DEBUG] No FUND_DATA for code:", code); return; }
+    if (!f) { sel.innerHTML += '<option value="' + code + '">' + code + ' (FUND_DATA缺失)</option>'; return; }
     sel.innerHTML += '<option value="' + code + '">' + f.name + ' (' + code + ')</option>';
   });
-  console.log("[DEBUG] initSingleFundSelect done, options count:", sel.options.length);
 }
 
 function switchTimeRange(range) {
