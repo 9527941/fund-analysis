@@ -1625,6 +1625,14 @@ let autoRefreshTimer = null;
 let autoRefreshOn = false;
 let lastNavResults = {}; // Keep latest NAV for stop-loss checks
 
+// Global runtime error logger — for debugging
+window.onerror = function(msg, url, line, col, err) {
+  const el = document.getElementById("navStatus");
+  if (el) el.textContent += " | JS错误:" + String(msg).substring(0, 50);
+  console.error("[RUNTIME]", msg, "line", line, "col", col, err);
+  return false;
+};
+
 // --- 逐只更新状态 (v20260617) ---
 let fundPollTimers = {};      // 每只基金的独立轮询 timer
 let fundNavConfirmed = {};    // code → bool: 是否已拿到最新确认净值
@@ -2642,11 +2650,17 @@ let navExpanded = false;
 let allNavData = [];
 
 function initSingleFundSelect(codes) {
+  console.log("[DEBUG] initSingleFundSelect called, codes:", codes);
   const sel = document.getElementById("singleFundSelect");
+  if (!sel) { console.error("[DEBUG] singleFundSelect element NOT FOUND!"); return; }
+  if (!FUND_DATA || Object.keys(FUND_DATA).length === 0) { console.error("[DEBUG] FUND_DATA is empty!"); return; }
   sel.innerHTML = '<option value="">-- 请选择一只基金 --</option>';
   codes.forEach(code => {
-    sel.innerHTML += '<option value="' + code + '">' + FUND_DATA[code].name + ' (' + code + ')</option>';
+    const f = FUND_DATA[code];
+    if (!f) { console.error("[DEBUG] No FUND_DATA for code:", code); return; }
+    sel.innerHTML += '<option value="' + code + '">' + f.name + ' (' + code + ')</option>';
   });
+  console.log("[DEBUG] initSingleFundSelect done, options count:", sel.options.length);
 }
 
 function switchTimeRange(range) {
