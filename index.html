@@ -1626,12 +1626,20 @@ let autoRefreshOn = false;
 let lastNavResults = {}; // Keep latest NAV for stop-loss checks
 
 // Global runtime error logger — for debugging
+const DIAG = [];
 window.onerror = function(msg, url, line, col, err) {
-  const el = document.getElementById("navStatus");
-  if (el) el.textContent += " | JS错误:" + String(msg).substring(0, 50);
-  console.error("[RUNTIME]", msg, "line", line, "col", col, err);
+  DIAG.push('JS:' + String(msg).substring(0, 60));
+  var el = document.getElementById("navStatus");
+  if (el) el.innerHTML = el.innerHTML + ' | ❌' + String(msg).substring(0, 30);
+  console.error("[RUNTIME]", msg, "line", line);
   return false;
 };
+window.addEventListener('unhandledrejection', function(e) {
+  DIAG.push('Promise:' + String(e.reason).substring(0, 60));
+  var el = document.getElementById("navStatus");
+  if (el) el.innerHTML = el.innerHTML + ' | ❌P:' + String(e.reason).substring(0, 30);
+  console.error("[UNHANDLED]", e.reason);
+});
 
 // --- 逐只更新状态 (v20260617) ---
 let fundPollTimers = {};      // 每只基金的独立轮询 timer
@@ -2687,6 +2695,7 @@ function switchTimeRange(range) {
 }
 
 function populateSingleFund() {
+  try {
   const code = document.getElementById("singleFundSelect").value;
   const detail = document.getElementById("singleFundDetail");
   if (!code) { detail.classList.remove("show"); return; }
@@ -2695,7 +2704,7 @@ function populateSingleFund() {
   const nav = lastNavResults[code];
   if (!nav) {
     detail.classList.add("show");
-    document.getElementById("singleFundMetrics").innerHTML = '<p style="color:#999;padding:12px;">暂无净值数据，请先刷新</p>';
+    document.getElementById("singleFundMetrics").innerHTML = '<p style="color:#999;padding:12px;">暂无净值数据 (code=' + code + ')</p>';
     return;
   }
 
@@ -2788,6 +2797,10 @@ function populateSingleFund() {
   buildNavHistoryTable(code);
 
   detail.classList.add("show");
+  } catch(e) {
+    DIAG.push('popSingleFund:' + code + ':' + e.message);
+    if (detail) detail.innerHTML += '<p style="color:red;padding:8px;">错误: ' + e.message + '</p>';
+  }
 }
 
 function buildPerfSummary(history) {
