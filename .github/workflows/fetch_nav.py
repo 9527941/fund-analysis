@@ -9,7 +9,7 @@ import re
 import urllib.request
 from datetime import datetime, timedelta
 
-FUND_CODES = ["024239", "013841", "002164", "012630", "004937", "024246", "001423", "016020", "016186"]
+FUND_CODES = ["013841", "002164", "012630", "004937", "024246", "001423", "016020", "016186", "024239"]
 JSONP_URL = "https://fundgz.1234567.com.cn/js/{code}.js?rt={timestamp}"
 HISTORY_API = "https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize={size}&startDate={start}&endDate={end}"
 OUTPUT_NAV_FILE = "data/fund-nav.json"
@@ -259,9 +259,6 @@ def main():
     if not report_updated:
         print("  No fund-report.html updates needed")
 
-    # 4. 更新板块行情数据（sector-data.json）
-    fetch_sector_data()
-
 
 def update_embedded_nav(funds_data):
     """更新 fund-report.html 中的 EMBEDDED_NAV 数据"""
@@ -365,4 +362,3 @@ def fetch_sector_data():
 
 if __name__ == "__main__":
     main()
-
