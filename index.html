@@ -1247,6 +1247,7 @@
   <h1>📊 每日基金持仓分析</h1>
   <div class="date" id="reportDate">--</div>
   <div class="nav-time"><span class="live-dot"></span><span id="navStatus">正在获取实时净值...</span></div>
+  <div id="diagBanner" style="background:#fff3cd;color:#856404;font-size:0.7rem;padding:4px 8px;margin-top:4px;border-radius:4px;display:none;"></div>
 </div>
 
 <div class="dividend-warn" id="dividendWarn">
@@ -1627,17 +1628,23 @@ let lastNavResults = {}; // Keep latest NAV for stop-loss checks
 
 // Global runtime error logger — for debugging
 const DIAG = [];
+function showDiag(msg, color) {
+  var el = document.getElementById("diagBanner");
+  if (!el) return;
+  el.style.display = "block";
+  el.style.background = color || "#fff3cd";
+  el.textContent = msg;
+  console.log("[DIAG]", msg);
+}
 window.onerror = function(msg, url, line, col, err) {
   DIAG.push('JS:' + String(msg).substring(0, 60));
-  var el = document.getElementById("navStatus");
-  if (el) el.innerHTML = el.innerHTML + ' | ❌' + String(msg).substring(0, 30);
+  showDiag("JS错误(L" + line + "): " + String(msg).substring(0, 80), "#f8d7da");
   console.error("[RUNTIME]", msg, "line", line);
   return false;
 };
 window.addEventListener('unhandledrejection', function(e) {
-  DIAG.push('Promise:' + String(e.reason).substring(0, 60));
-  var el = document.getElementById("navStatus");
-  if (el) el.innerHTML = el.innerHTML + ' | ❌P:' + String(e.reason).substring(0, 30);
+  DIAG.push('P:' + String(e.reason).substring(0, 60));
+  showDiag("Promise错误: " + String(e.reason).substring(0, 80), "#f8d7da");
   console.error("[UNHANDLED]", e.reason);
 });
 
@@ -2696,15 +2703,18 @@ function switchTimeRange(range) {
 
 function populateSingleFund() {
   try {
+  showDiag("populateSingleFund触发, code=...", "#d4edda");
   const code = document.getElementById("singleFundSelect").value;
   const detail = document.getElementById("singleFundDetail");
-  if (!code) { detail.classList.remove("show"); return; }
+  showDiag("选中: " + code + " detail存在:" + !!detail + " nav存在:" + !!(lastNavResults[code]), "#d4edda");
+  if (!code) { detail.classList.remove("show"); showDiag("无code, 返回"); return; }
 
   currentSingleFundCode = code;
   const nav = lastNavResults[code];
   if (!nav) {
     detail.classList.add("show");
     document.getElementById("singleFundMetrics").innerHTML = '<p style="color:#999;padding:12px;">暂无净值数据 (code=' + code + ')</p>';
+    showDiag("无nav数据 for " + code);
     return;
   }
 
