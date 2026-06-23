@@ -2473,6 +2473,16 @@ function startAutoRefresh() {
 let sectorCache = null;
 let sectorCacheTime = 0;
 
+// Sector board codes — 用于实时获取板块涨跌幅
+const SECTOR_BOARDS = {
+  "90.BK1036": "半导体",
+  "90.BK0459": "元件",
+  "90.BK0478": "有色金属",
+  "90.BK0800": "人工智能",
+  "90.BK0428": "电力",
+  "90.BK0493": "新能源"
+};
+
 // JSONP utility — bypasses CORS by using <script> tag
 // cbName: optional fixed callback name (e.g. 'jsonpgz'); if omitted, auto-generated
 function fetchJsonp(url, cbName, timeout = 8000) {
@@ -2517,18 +2527,50 @@ async function fetchSectorBoards() {
   const now = Date.now();
   if (sectorCache && (now - sectorCacheTime) < 120000) return sectorCache;
 
-  // Load local JSON updated by GitHub Actions workflow (no CORS issues)
-  // push2 API blocks browser CORS; Python backend handles live fetch
   let result = {};
-  try {
-    const resp = await fetch("./data/sector-data.json?t=" + Date.now());
-    if (resp.ok) {
+  const codes = Object.keys(SECTOR_BOARDS);
+  
+  // 并行获取所有板块实时数据（push2 API 支持 CORS）
+  const promises = codes.map(async code => {
+    try {
+      const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${code}&fields=f57,f58,f43,f170`;
+      const resp = await fetch(url + "&_=" + Date.now());
+      if (!resp.ok) return null;
       const data = await resp.json();
-      if (data && data.boards) {
-        result = { ...data.boards };
+      if (data && data.data) {
+        const d = data.data;
+        const changeRate = d.f170;
+        return {
+          code: code,
+          name: d.f58 || SECTOR_BOARDS[code],
+          price: d.f43 || 0,
+          changeRate: (changeRate != null) ? (changeRate / 100) : null
+        };
       }
+    } catch(e) { /* 单只失败不影响其他 */ }
+    return null;
+  });
+
+  const results = await Promise.all(promises);
+  results.forEach(r => {
+    if (r && r.code) {
+      result[r.code] = { name: r.name, price: r.price, changeRate: r.changeRate };
     }
-  } catch (e) { /* ignore */ }
+  });
+
+  // 如果全部失败，尝试从静态文件兜底
+  if (Object.keys(result).length === 0) {
+    try {
+      const resp = await fetch("./data/sector-data.json?t=" + Date.now());
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.boards) {
+          result = { ...data.boards };
+          console.log("[sector] Using static sector-data.json fallback");
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
 
   sectorCache = result;
   sectorCacheTime = now;
