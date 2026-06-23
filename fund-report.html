@@ -2665,7 +2665,7 @@ async function fetchSectorBoards() {
   const result = {};
   const promises = boardCodes.map(async code => {
     try {
-      const resp = await fetch(`http://push2.eastmoney.com/api/qt/stock/get?secid=${code}&fields=f57,f58,f43,f170`);
+      const resp = await fetch(`https://push2.eastmoney.com/api/qt/stock/get?secid=${code}&fields=f57,f58,f43,f170`);
       const data = await resp.json();
       if (data && data.data) {
         result[code] = {
@@ -2679,6 +2679,19 @@ async function fetchSectorBoards() {
     }
   });
   await Promise.all(promises);
+
+  // 如果全部失败，尝试从静态文件兜底
+  if (Object.keys(result).length === 0) {
+    try {
+      const resp = await fetch("./data/sector-data.json?t=" + Date.now());
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.boards) {
+          Object.assign(result, data.boards);
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
 
   sectorCache = result;
   sectorCacheTime = now;
