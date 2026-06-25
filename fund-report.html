@@ -1593,7 +1593,7 @@ let lastNavResults = {}; // Keep latest NAV for stop-loss checks
 // Embedded fallback data — 当远程请求失败时使用（gen_html.py 自动更新）
 // ============================================================
 const EMBEDDED_FUND_DATA = {
-  "updated": "2026-06-18T15:43:00+08:00",
+  "updated": "2026-06-25T11:15:00+08:00",
   "funds": {
     "013841": {
       "name": "银华集成电路混合C",
@@ -1603,7 +1603,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-03-03",
           "type": "买入",
-          "amount": 500.0,
+          "amount": 500,
           "shares": 275.31,
           "nav": 1.8161,
           "fee": 0
@@ -1611,7 +1611,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-03-09",
           "type": "买入",
-          "amount": 500.0,
+          "amount": 500,
           "shares": 280.26,
           "nav": 1.784,
           "fee": 0
@@ -1619,7 +1619,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-03-19",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 583.6,
           "nav": 1.7135,
           "fee": 0
@@ -1628,8 +1628,16 @@ const EMBEDDED_FUND_DATA = {
           "date": "2026-06-10",
           "type": "卖出",
           "amount": 1008.28,
-          "shares": 400.0,
+          "shares": 400,
           "nav": 2.5207,
+          "fee": 0
+        },
+        {
+          "date": "2026-06-24",
+          "type": "卖出",
+          "amount": 1030.01,
+          "shares": 310,
+          "nav": 3.3226,
           "fee": 0
         }
       ]
@@ -1642,7 +1650,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-03-19",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 655.74,
           "nav": 1.525,
           "fee": 0
@@ -1650,7 +1658,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-05",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 581.73,
           "nav": 1.719,
           "fee": 0
@@ -1658,7 +1666,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-23",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "fee": 0,
           "pending": true
         }
@@ -1672,7 +1680,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-05-14",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 745.38,
           "nav": 1.3416,
           "fee": 0
@@ -1680,9 +1688,17 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-05-15",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 747.33,
           "nav": 1.3381,
+          "fee": 0
+        },
+        {
+          "date": "2026-06-24",
+          "type": "卖出",
+          "amount": 2552.24,
+          "shares": 1492.71,
+          "nav": 1.7098,
           "fee": 0
         }
       ]
@@ -1695,7 +1711,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-05-15",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 1065.98,
           "nav": 0.9381,
           "fee": 0
@@ -1703,7 +1719,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-05-27",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 1035.2,
           "nav": 0.966,
           "fee": 0
@@ -1711,7 +1727,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-05-28",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 1032.95,
           "nav": 0.9681,
           "fee": 0
@@ -1719,7 +1735,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-17",
           "type": "买入",
-          "amount": 500.0,
+          "amount": 500,
           "nav": 1.0655,
           "fee": 0,
           "pending": true
@@ -1727,7 +1743,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-23",
           "type": "买入",
-          "amount": 2500.0,
+          "amount": 2500,
           "fee": 0,
           "pending": true
         }
@@ -1741,7 +1757,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-05-27",
           "type": "买入",
-          "amount": 2000.0,
+          "amount": 2000,
           "shares": 1247.04,
           "nav": 1.6038,
           "fee": 0
@@ -1749,7 +1765,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-05",
           "type": "买入",
-          "amount": 2000.0,
+          "amount": 2000,
           "shares": 1347.71,
           "nav": 1.484,
           "fee": 0
@@ -1757,11 +1773,10 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-11",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 708.11,
           "nav": 1.4122,
-          "fee": 0,
-          "pending": true
+          "fee": 0
         }
       ]
     },
@@ -1773,7 +1788,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-05",
           "type": "买入",
-          "amount": 20000.0,
+          "amount": 20000,
           "shares": 12626.26,
           "nav": 1.584,
           "fee": 0
@@ -1788,7 +1803,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-05",
           "type": "买入",
-          "amount": 2000.0,
+          "amount": 2000,
           "shares": 2205.31,
           "nav": 0.9069,
           "fee": 0
@@ -1796,7 +1811,7 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-10",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "shares": 1134.81,
           "nav": 0.8812,
           "fee": 0
@@ -1804,14 +1819,14 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-18",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "fee": 0,
           "pending": true
         },
         {
           "date": "2026-06-23",
           "type": "买入",
-          "amount": 1000.0,
+          "amount": 1000,
           "fee": 0,
           "pending": true
         }
@@ -1825,17 +1840,18 @@ const EMBEDDED_FUND_DATA = {
         {
           "date": "2026-06-10",
           "type": "买入",
-          "amount": 2000.0,
+          "amount": 2000,
           "shares": 1706.48,
           "nav": 1.172,
           "fee": 0
         },
         {
-          "date": "2026-06-18",
+          "date": "2026-06-24",
           "type": "买入",
-          "amount": 1000.0,
-          "fee": 0,
-          "pending": true
+          "amount": 1000,
+          "shares": 904,
+          "nav": 1.1062,
+          "fee": 0
         }
       ]
     },
@@ -1845,9 +1861,9 @@ const EMBEDDED_FUND_DATA = {
       "dividendType": "红利再投资",
       "transactions": [
         {
-          "date": "2026-06-22",
+          "date": "2026-06-24",
           "type": "买入",
-          "amount": 2000.0,
+          "amount": 2000,
           "fee": 0,
           "pending": true
         }
@@ -1855,8 +1871,8 @@ const EMBEDDED_FUND_DATA = {
     }
   }
 };
-const EMBEDDED_NAV = {"013841":{"name":"银华集成电路混合C","gsz":3.2898,"dwjz":3.3226,"gszzl":7.08,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"002164":{"name":"汇添富新睿精选混合C","gsz":1.8658,"dwjz":1.881,"gszzl":0.37,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"012630":{"name":"广发国证半导体芯片ETF联接C","gsz":1.7155,"dwjz":1.7098,"gszzl":5.35,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"004937":{"name":"中航混改精选混合C","gsz":1.0381,"dwjz":1.0415,"gszzl":-0.75,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"024246":{"name":"广发上证科创板人工智能ETF发起式联接C","gsz":1.5935,"dwjz":1.5951,"gszzl":3.25,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"001423":{"name":"景顺长城安享回报混合C","gsz":1.6001,"dwjz":1.602,"gszzl":0.19,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"016020":{"name":"招商中证电池主题ETF联接C","gsz":0.9377,"dwjz":0.9373,"gszzl":1.11,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"016186":{"name":"广发电力ETF联接C","gsz":1.1054,"dwjz":1.1062,"gszzl":-1.85,"gztime":"2026-06-24 15:00","jzrq":"2026-06-24"},"024239":{"name":"华夏全球科技先锋混合(QDII)C","gsz":3.894,"dwjz":3.8872,"gszzl":0.17,"gztime":"2026-06-24 22:29","jzrq":"2026-06-23"}};
-const EMBEDDED_NAV_VERSION = "2026-06-22";
+const EMBEDDED_NAV = {"013841": {"name": "银华集成电路混合C", "gsz": 3.4135, "dwjz": 3.3226, "gszzl": 2.74, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "002164": {"name": "汇添富新睿精选混合C", "gsz": 1.895, "dwjz": 1.881, "gszzl": 0.74, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "012630": {"name": "广发国证半导体芯片ETF联接C", "gsz": 1.7814, "dwjz": 1.7098, "gszzl": 4.19, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "004937": {"name": "中航混改精选混合C", "gsz": 1.0078, "dwjz": 1.0415, "gszzl": -3.23, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "024246": {"name": "广发上证科创板人工智能ETF发起式联接C", "gsz": 1.6318, "dwjz": 1.5951, "gszzl": 2.3, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "001423": {"name": "景顺长城安享回报混合C", "gsz": 1.6017, "dwjz": 1.602, "gszzl": -0.02, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "016020": {"name": "招商中证电池主题ETF联接C", "gsz": 0.9293, "dwjz": 0.9373, "gszzl": -0.85, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "016186": {"name": "广发电力ETF联接C", "gsz": 1.0951, "dwjz": 1.1062, "gszzl": -1.0, "gztime": "2026-06-25 11:09", "jzrq": "2026-06-24"}, "024239": {"name": "华夏全球科技先锋混合(QDII)C", "gsz": 3.8923, "dwjz": 3.8872, "gszzl": 0.13, "gztime": "2026-06-25 04:00", "jzrq": "2026-06-23"}};
+const EMBEDDED_NAV_VERSION = "2026-06-25";
 // BUILD: 2026-06-23T11:20+08 — 单基金模块修复 + 缓存控制
 
 // ============================================================
