@@ -3367,7 +3367,7 @@ function buildCrossChannel(codes, navResults) {
     desc: `闲置资金可放货币基金或短债(年化1.5-2.5%)，利用定投纪律分散建仓风险。${m && m.mood === '恐慌' ? '恐慌时更应保留弹药，不要一把梭。' : ''}` });
 
   // ===== 4) 组合优化 =====
-  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c].sectorCN === "半导体");
+  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c] && FUND_META[c].sectorCN === "半导体" && hasRemainingShares(c));
   if (semiCodes.length >= 2) {
     // Compare performance
     const perfs = semiCodes.map(c => {
