@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-24T15:00:00+08:00",
+  "updated": "2026-06-25T11:15:00+08:00",
   "funds": {
     "013841": {
       "name": "银华集成电路混合C",
@@ -68,6 +68,13 @@
           "shares": 581.73,
           "nav": 1.719,
           "fee": 0
+        },
+        {
+          "date": "2026-06-23",
+          "type": "买入",
+          "amount": 1000,
+          "fee": 0,
+          "pending": true
         }
       ]
     },
@@ -136,6 +143,13 @@
           "type": "买入",
           "amount": 500,
           "nav": 1.0655,
+          "fee": 0,
+          "pending": true
+        },
+        {
+          "date": "2026-06-23",
+          "type": "买入",
+          "amount": 2500,
           "fee": 0,
           "pending": true
         }
@@ -207,6 +221,20 @@
           "shares": 1134.81,
           "nav": 0.8812,
           "fee": 0
+        },
+        {
+          "date": "2026-06-18",
+          "type": "买入",
+          "amount": 1000,
+          "fee": 0,
+          "pending": true
+        },
+        {
+          "date": "2026-06-23",
+          "type": "买入",
+          "amount": 1000,
+          "fee": 0,
+          "pending": true
         }
       ]
     },
@@ -242,10 +270,8 @@
           "date": "2026-06-24",
           "type": "买入",
           "amount": 2000,
-          "shares": 0,
-          "nav": 0,
           "fee": 0,
-          "note": "QDII净值延迟公布，待6/24净值确认后更新份额"
+          "pending": true
         }
       ]
     }
