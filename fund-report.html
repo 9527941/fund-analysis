@@ -1411,7 +1411,7 @@ let dcaChart = null;
 function initDCAFunds() {
   const sel = document.getElementById("dcaFund");
   sel.innerHTML = '<option value="all">全部组合</option>';
-  Object.keys(FUND_DATA).forEach(code => {
+  Object.keys(FUND_DATA).filter(c => hasRemainingShares(c)).forEach(code => {
     sel.innerHTML += '<option value="' + code + '">' + FUND_DATA[code].name + '</option>';
   });
   // Set earliest date
@@ -1430,7 +1430,7 @@ function runDCASim() {
   const history = HISTORY_RAW.funds;
 
   // Get relevant funds and their historical NAV
-  const codes = fundCode === "all" ? Object.keys(FUND_DATA) : [fundCode];
+  const codes = fundCode === "all" ? Object.keys(FUND_DATA).filter(c => hasRemainingShares(c)) : [fundCode];
 
   // Build unified date-to-NAV map (weighted by fund count)
   const dateNavMap = {};
@@ -2391,6 +2391,7 @@ function upDownClass(v) {
 // Build Quick Glance Row
 // ============================================================
 function buildQuickGlance(codes, navMap) {
+  codes = codes.filter(c => hasRemainingShares(c));
   let html = "";
   codes.forEach(code => {
     const f = FUND_DATA[code];
@@ -2809,9 +2810,23 @@ let currentTimeRange = "3m";
 let navExpanded = false;
 let allNavData = [];
 
+// 判断基金是否还有持仓
+function hasRemainingShares(code) {
+  const f = FUND_DATA[code];
+  if (!f) return false;
+  let shares = 0;
+  f.transactions.forEach(t => {
+    if (t.type.includes("卖出")) { shares -= (t.shares || 0); return; }
+    if (t.pending) { shares += t.shares || (t.amount / (t.nav || 1)); }
+    else if (t.shares) { shares += t.shares; }
+  });
+  return shares > 0.001;
+}
+
 function initSingleFundSelect(codes) {
+  const activeCodes = codes.filter(c => hasRemainingShares(c));
   const sel = document.getElementById("singleFundSelect");
-  sel.innerHTML = '<option value="">-- 请选择一只基金 --</option>';
+  sel.innerHTML = '<option value="">-- 请选择一只基金 (' + activeCodes.length + '只) --</option>';
   codes.forEach(code => {
     sel.innerHTML += '<option value="' + code + '">' + FUND_DATA[code].name + ' (' + code + ')</option>';
   });
@@ -3142,6 +3157,7 @@ function toggleNavExpand() {
 // Investment Reference (AI-generated portfolio insights)
 // ============================================================
 function buildInvestRef(codes, navResults) {
+  codes = codes.filter(c => hasRemainingShares(c));
   const fundCalcs = {};
   let totalInvest = 0, totalValue = 0, totalPnl = 0;
 
@@ -3236,6 +3252,7 @@ function buildInvestRef(codes, navResults) {
 // Cross-Channel Investment Opportunities
 // ============================================================
 function buildCrossChannel(codes, navResults) {
+  codes = codes.filter(c => hasRemainingShares(c));
   const fundCalcs = {};
   Object.entries(FUND_DATA).forEach(([code]) => {
     const nav = navResults[code];
