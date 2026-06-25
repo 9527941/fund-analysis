@@ -3279,7 +3279,7 @@ function buildCrossChannel(codes, navResults) {
   items.push({ tag: "info", tagText: "资金管理", title: "闲置资金可考虑货币基金或短债", desc: "等待布局机会的闲置资金，可以放在货币基金或短债基金中，年化约1.5-2.5%，流动性好且风险低。" });
 
   // Idea 4: based on portfolio
-  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c].sectorCN === "半导体");
+  const semiCodes = Object.keys(FUND_DATA).filter(c => FUND_META[c] && FUND_META[c].sectorCN === "半导体" && hasRemainingShares(c));
   if (semiCodes.length >= 2) {
     items.push({ tag: "watch", tagText: "优化建议", title: "两只半导体基金可考虑整合", desc: `你持有 ${semiCodes.length} 只半导体基金（${semiCodes.map(c => FUND_DATA[c].name.split(' ')[0]).join('、')}），可考虑集中到表现更好的一只以简化管理。` });
   }
