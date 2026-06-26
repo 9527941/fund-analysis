@@ -3432,7 +3432,7 @@ async function init() {
     startAutoRefresh();
   } catch (e) {
     console.error("Failed to load fund data:", e);
-    document.getElementById("navStatus").textContent = "⚠️ 数据加载失败，请刷新重试";
+    document.getElementById("navStatus").textContent = "⚠️ 数据加载失败，请刷新重试｜" + (e.message || String(e)).substring(0, 60);
     document.getElementById("fundsContainer").innerHTML =
       '<p style="text-align:center;color:#999;padding:40px">无法加载交易数据，请检查网络后刷新页面</p>';
   }
