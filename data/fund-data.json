@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-25T11:46:00+08:00",
+  "updated": "2026-06-26T15:03:50+08:00",
   "funds": {
     "013841": {
       "name": "银华集成电路混合C",
@@ -45,6 +45,13 @@
           "shares": 310,
           "nav": 3.3226,
           "fee": 0
+        },
+        {
+          "date": "2026-06-26",
+          "type": "买入",
+          "amount": 5000,
+          "fee": 0,
+          "pending": true
         }
       ]
     },
@@ -73,6 +80,13 @@
           "date": "2026-06-23",
           "type": "买入",
           "amount": 1000,
+          "fee": 0,
+          "pending": true
+        },
+        {
+          "date": "2026-06-26",
+          "type": "买入",
+          "amount": 2000,
           "fee": 0,
           "pending": true
         }
@@ -278,6 +292,20 @@
           "date": "2026-06-24",
           "type": "买入",
           "amount": 2000,
+          "fee": 0,
+          "pending": true
+        }
+      ]
+    },
+    "022718": {
+      "name": "永赢锐见进取混合C",
+      "shortName": "永赢锐见进取",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-06-26",
+          "type": "买入",
+          "amount": 3000,
           "fee": 0,
           "pending": true
         }
