@@ -2102,6 +2102,7 @@ function buildPortfolioAnalysis(fundCalcs) {
   // Concerns
   const concerns = [];
 
+  const semiPct = (sectors["半导体"] || 0) / totalPortfolioValue * 100;
   const semiCount = Object.keys(fundCalcs).filter(c => FUND_META[c] && FUND_META[c].sectorCN === "半导体" && hasRemainingShares(c)).length;
   if (semiPct > 30) {
     const semiWarn = semiCount >= 2
