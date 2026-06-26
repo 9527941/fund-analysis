@@ -1597,7 +1597,7 @@ let lastNavResults = {}; // Keep latest NAV for stop-loss checks
 // Embedded fallback data — 当远程请求失败时使用（gen_html.py 自动更新）
 // ============================================================
 const EMBEDDED_FUND_DATA = {
-  "updated": "2026-06-25T11:15:00+08:00",
+  "updated": "2026-06-26T15:03:50+08:00",
   "funds": {
     "013841": {
       "name": "银华集成电路混合C",
@@ -1643,6 +1643,13 @@ const EMBEDDED_FUND_DATA = {
           "shares": 310,
           "nav": 3.3226,
           "fee": 0
+        },
+        {
+          "date": "2026-06-26",
+          "type": "买入",
+          "amount": 5000,
+          "fee": 0,
+          "pending": true
         }
       ]
     },
@@ -1671,6 +1678,13 @@ const EMBEDDED_FUND_DATA = {
           "date": "2026-06-23",
           "type": "买入",
           "amount": 1000,
+          "fee": 0,
+          "pending": true
+        },
+        {
+          "date": "2026-06-26",
+          "type": "买入",
+          "amount": 2000,
           "fee": 0,
           "pending": true
         }
@@ -1850,6 +1864,14 @@ const EMBEDDED_FUND_DATA = {
           "fee": 0
         },
         {
+          "date": "2026-06-18",
+          "type": "买入",
+          "amount": 1000.0,
+          "shares": 881.06,
+          "nav": 1.135,
+          "fee": 0
+        },
+        {
           "date": "2026-06-24",
           "type": "买入",
           "amount": 1000,
@@ -1872,10 +1894,24 @@ const EMBEDDED_FUND_DATA = {
           "pending": true
         }
       ]
+    },
+    "022718": {
+      "name": "永赢锐见进取混合C",
+      "shortName": "永赢锐见进取",
+      "dividendType": "红利再投资",
+      "transactions": [
+        {
+          "date": "2026-06-26",
+          "type": "买入",
+          "amount": 3000,
+          "fee": 0,
+          "pending": true
+        }
+      ]
     }
   }
 };
-const EMBEDDED_NAV = {"013841":{"name":"银华集成电路混合C","gsz":3.4326,"dwjz":3.4287,"gszzl":3.31,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"002164":{"name":"汇添富新睿精选混合C","gsz":1.9119,"dwjz":1.929,"gszzl":1.64,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"012630":{"name":"广发国证半导体芯片ETF联接C","gsz":1.8032,"dwjz":1.7974,"gszzl":5.46,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"004937":{"name":"中航混改精选混合C","gsz":1.0024,"dwjz":1.0274,"gszzl":-3.75,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"024246":{"name":"广发上证科创板人工智能ETF发起式联接C","gsz":1.6445,"dwjz":1.6449,"gszzl":3.1,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"001423":{"name":"景顺长城安享回报混合C","gsz":1.6038,"dwjz":1.608,"gszzl":0.11,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"016020":{"name":"招商中证电池主题ETF联接C","gsz":0.9306,"dwjz":0.931,"gszzl":-0.71,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"016186":{"name":"广发电力ETF联接C","gsz":1.0863,"dwjz":1.0871,"gszzl":-1.8,"gztime":"2026-06-25 15:00","jzrq":"2026-06-25"},"024239":{"name":"华夏全球科技先锋混合(QDII)C","gsz":3.9839,"dwjz":3.9608,"gszzl":0.58,"gztime":"2026-06-25 22:29","jzrq":"2026-06-24"}};
+const EMBEDDED_NAV = {"013841": {"name": "银华集成电路混合C", "gsz": 3.464, "dwjz": 3.4287, "gszzl": 1.03, "gztime": "2026-06-26 11:15", "jzrq": "2026-06-25"}, "002164": {"name": "汇添富新睿精选混合C", "gsz": 1.8423, "dwjz": 1.929, "gszzl": -4.49, "gztime": "2026-06-26 11:16", "jzrq": "2026-06-25"}, "012630": {"name": "广发国证半导体芯片ETF联接C", "gsz": 1.7424, "dwjz": 1.7974, "gszzl": -3.06, "gztime": "2026-06-26 11:16", "jzrq": "2026-06-25"}, "004937": {"name": "中航混改精选混合C", "gsz": 0.9922, "dwjz": 1.0274, "gszzl": -3.43, "gztime": "2026-06-26 11:16", "jzrq": "2026-06-25"}, "024246": {"name": "广发上证科创板人工智能ETF发起式联接C", "gsz": 1.5775, "dwjz": 1.6449, "gszzl": -4.09, "gztime": "2026-06-26 11:16", "jzrq": "2026-06-25"}, "001423": {"name": "景顺长城安享回报混合C", "gsz": 1.5991, "dwjz": 1.608, "gszzl": -0.55, "gztime": "2026-06-26 11:16", "jzrq": "2026-06-25"}, "016020": {"name": "招商中证电池主题ETF联接C", "gsz": 0.8917, "dwjz": 0.931, "gszzl": -4.22, "gztime": "2026-06-26 11:16", "jzrq": "2026-06-25"}, "016186": {"name": "广发电力ETF联接C", "gsz": 1.0837, "dwjz": 1.0871, "gszzl": -0.31, "gztime": "2026-06-26 11:16", "jzrq": "2026-06-25"}, "024239": {"name": "华夏全球科技先锋混合(QDII)C", "gsz": 3.963, "dwjz": 3.9608, "gszzl": 0.06, "gztime": "2026-06-26 04:00", "jzrq": "2026-06-24"}, "022718": {"name": "永赢锐见进取混合C", "gsz": 3.3203, "dwjz": 3.3203, "gszzl": -1.4, "gztime": "2026-06-26 15:03", "jzrq": "2026-06-25"}};
 const EMBEDDED_NAV_VERSION = "2026-06-25";
 // BUILD: 2026-06-23T11:20+08 — 单基金模块修复 + 缓存控制
 
@@ -1954,6 +1990,16 @@ const FUND_META = {
     riskLevel: "中高",
     style: "ETF联接，被动跟踪中证电力公用事业指数",
     notes: "电力板块防御性较强，受电价政策和公用事业改革影响"
+  },
+  "022718": {
+    sector: "混合",
+    sectorCN: "混合",
+    benchmarkType: "market",
+    benchmarkIndex: "1.000300",
+    benchmarkLabel: "沪深300",
+    riskLevel: "中高",
+    style: "灵活配置型，主动管理",
+    notes: "灵活配置混合型基金"
   },
   "024239": {
     sector: "海外QDII",
