@@ -2231,7 +2231,7 @@ function analyzeFund(code, navData, calc, holdingDays) {
 
   // --- Concentration note for semiconductor ---
   let sectorNote = "";
-  if (code === "013841" || code === "012630") && hasRemainingShares("013841") && hasRemainingShares("012630")) {
+  if ((code === "013841" || code === "012630") && hasRemainingShares("013841") && hasRemainingShares("012630")) {
     sectorNote = "\n⚠️ 注意：你的组合里有两只半导体基金（银华集成电路 + 广发半导体芯片），合计占比较高，行业集中度风险需要关注。如果半导体板块大跌，组合会受到双重打击。";
   }
 
