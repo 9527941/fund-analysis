@@ -2040,37 +2040,73 @@ function calcRealizedPnL() {
 function buildRealizedPnLTable() {
   const data = calcRealizedPnL();
   const fundCodes = Object.keys(data.funds);
+
   if (fundCodes.length === 0) {
-    document.getElementById("realizedTbody").innerHTML = '<tr><td colspan="6" class="realized-empty">暂无卖出记录</td></tr>';
+    document.getElementById("realizedTbody").innerHTML =
+      '<tr><td colspan="6" class="realized-empty">暂无卖出记录</td></tr>';
     return;
   }
+
   let rows = "";
+
   fundCodes.forEach((code, fi) => {
     const fund = data.funds[code];
     const totalShares = fund.sellRecords.reduce((s, r) => s + r.shares, 0);
     const totalSellAmt = fund.sellRecords.reduce((s, r) => s + r.sellAmount, 0);
     const detailId = "realizeDetail_" + fi;
-    rows += '<tr class="realized-summary-row" onclick="toggleRealizedDetail('' + detailId + '', this)" style="cursor:pointer;">' +
-      '<td class="fund-name-cell"><span class="expand-icon" id="' + detailId + '_icon">▶</span><span class="fund-name-title">' + fund.shortName + '</span><span class="fund-code-text">' + code + '</span></td>' +
-      '<td>' + fund.sellRecords.length + ' 次</td>' +
-      '<td>' + totalShares.toFixed(2) + ' 份</td>' +
-      '<td>¥' + totalSellAmt.toFixed(2) + '</td>' +
-      '<td>¥' + fund.totalCost.toFixed(2) + '</td>' +
-      '<td class="pnl-cell"><div class="' + upDownClass(fund.totalRealized) + '">' + formatMoney(fund.totalRealized) + '</div><div class="pnl-rate ' + upDownClass(fund.totalRate) + '">' + formatRate(fund.totalRate) + '</div></td></tr>';
+
+    // Summary row
+    rows += `<tr class="realized-summary-row" onclick="toggleRealizedDetail('${detailId}', this)" style="cursor:pointer;">
+      <td class="fund-name-cell">
+        <span class="expand-icon" id="${detailId}_icon">▶</span>
+        <span class="fund-name-title">${fund.shortName}</span>
+        <span class="fund-code-text">${code}</span>
+      </td>
+      <td>${fund.sellRecords.length} 次</td>
+      <td>${totalShares.toFixed(2)} 份</td>
+      <td>¥${totalSellAmt.toFixed(2)}</td>
+      <td>¥${fund.totalCost.toFixed(2)}</td>
+      <td class="pnl-cell">
+        <div class="${upDownClass(fund.totalRealized)}">${formatMoney(fund.totalRealized)}</div>
+        <div class="pnl-rate ${upDownClass(fund.totalRate)}">${formatRate(fund.totalRate)}</div>
+      </td>
+    </tr>`;
+
+    // Detail rows (hidden by default)
     fund.sellRecords.forEach((rec, idx) => {
       const pendingTag = rec.pending ? ' <span style="color:#f39c12;font-size:0.62rem">待确认</span>' : '';
-      rows += '<tr class="realized-detail-row ' + detailId + '" style="display:none;">' +
-        '<td class="fund-name-cell" style="padding-left:28px;"><span style="font-size:0.72rem;color:var(--text-secondary);">' + (idx + 1) + '. ' + rec.date + pendingTag + '</span></td>' +
-        '<td>@ ' + (rec.nav ? rec.nav.toFixed(4) : '--') + '</td>' +
-        '<td>' + rec.shares.toFixed(2) + ' 份</td>' +
-        '<td>¥' + rec.sellAmount.toFixed(2) + '</td>' +
-        '<td>¥' + rec.costBasis.toFixed(2) + '<div class="sell-detail">均价 ¥' + rec.avgCost.toFixed(4) + '</div></td>' +
-        '<td class="pnl-cell"><div class="' + upDownClass(rec.realizedPnL) + '">' + formatMoney(rec.realizedPnL) + '</div><div class="pnl-rate ' + upDownClass(rec.realizedRate) + '">' + formatRate(rec.realizedRate) + '</div></td></tr>';
+      rows += `<tr class="realized-detail-row ${detailId}" style="display:none;">
+        <td class="fund-name-cell" style="padding-left:28px;">
+          <span style="font-size:0.72rem;color:var(--text-secondary);">${idx + 1}. ${rec.date}${pendingTag}</span>
+        </td>
+        <td>@ ${rec.nav ? rec.nav.toFixed(4) : '--'}</td>
+        <td>${rec.shares.toFixed(2)} 份</td>
+        <td>¥${rec.sellAmount.toFixed(2)}</td>
+        <td>¥${rec.costBasis.toFixed(2)}<div class="sell-detail">均价 ¥${rec.avgCost.toFixed(4)}</div></td>
+        <td class="pnl-cell">
+          <div class="${upDownClass(rec.realizedPnL)}">${formatMoney(rec.realizedPnL)}</div>
+          <div class="pnl-rate ${upDownClass(rec.realizedRate)}">${formatRate(rec.realizedRate)}</div>
+        </td>
+      </tr>`;
     });
   });
-  rows += '<tr class="total-row"><td class="fund-name-cell"><span class="fund-name-title">合计</span></td><td>--</td><td>--</td><td>--</td><td><strong>¥' + data.grandCost.toFixed(2) + '</strong></td><td class="pnl-cell"><div class="' + upDownClass(data.grandRealized) + '"><strong>' + formatMoney(data.grandRealized) + '</strong></div><div class="pnl-rate ' + upDownClass(data.grandRate) + '"><strong>' + formatRate(data.grandRate) + '</strong></div></td></tr>';
+
+  // Grand total row
+  rows += `<tr class="total-row">
+    <td class="fund-name-cell"><span class="fund-name-title">合计</span></td>
+    <td>--</td>
+    <td>--</td>
+    <td>--</td>
+    <td><strong>¥${data.grandCost.toFixed(2)}</strong></td>
+    <td class="pnl-cell">
+      <div class="${upDownClass(data.grandRealized)}"><strong>${formatMoney(data.grandRealized)}</strong></div>
+      <div class="pnl-rate ${upDownClass(data.grandRate)}"><strong>${formatRate(data.grandRate)}</strong></div>
+    </td>
+  </tr>`;
+
   document.getElementById("realizedTbody").innerHTML = rows;
 }
+
 function toggleRealizedDetail(detailId, row) {
   const icon = document.getElementById(detailId + "_icon");
   const rows = document.querySelectorAll("." + detailId);
