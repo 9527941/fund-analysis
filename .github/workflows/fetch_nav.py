@@ -259,6 +259,44 @@ def main():
     if not report_updated:
         print("  No fund-report.html updates needed")
 
+    # 4. 更新 index.html 中的 NAV_VERSION（确保 CDN 缓存穿透）
+    print("=== Updating NAV_VERSION in index.html ===")
+    version_updated = update_nav_version()
+    if not version_updated:
+        print("  No NAV_VERSION update needed")
+
+
+def update_nav_version():
+    """更新 index.html 中的 NAV_VERSION 常量，用于 CDN 缓存穿透"""
+    try:
+        with open(HTML_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        print("  [SKIP] index.html not found")
+        return False
+
+    # 匹配 const NAV_VERSION = "...";
+    match = re.search(r'const NAV_VERSION = "(\d+)";', content)
+    if not match:
+        print("  [SKIP] NAV_VERSION not found in index.html")
+        return False
+
+    # 用当前时间戳作为新版本号 (YYYYMMDDHHMMSS)
+    new_version = datetime.now().strftime("%Y%m%d%H%M%S")
+    old_text = f'const NAV_VERSION = "{match.group(1)}";'
+    new_text = f'const NAV_VERSION = "{new_version}";'
+
+    if old_text == new_text:
+        print("  NAV_VERSION unchanged (same timestamp)")
+        return False
+
+    content = content.replace(old_text, new_text)
+
+    with open(HTML_FILE, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"  NAV_VERSION updated: {match.group(1)} -> {new_version}")
+    return True
+
 
 def update_embedded_nav(funds_data):
     """更新 fund-report.html 中的 EMBEDDED_NAV 数据"""
