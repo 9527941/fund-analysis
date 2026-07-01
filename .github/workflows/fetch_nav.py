@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
 从天天基金 JSONP 接口获取最新净值数据，更新 data/fund-nav.json
-从东方财富历史净值接口获取缺失的历史净值，更新 index.html 中的 HISTORY_RAW
+同时将新净值追加到 index.html/fund-report.html 的 HISTORY_RAW 中
 GitHub Actions 自动运行，无需本地电脑
+
+v4 变更：HISTORY_RAW 不再依赖东方财富 history API（会被 GitHub IP 拦截），
+        改为直接从 fund-nav.json 的 dwjz 数据追加。
 """
 import json
 import re
@@ -55,33 +58,8 @@ def fetch_nav(code):
     return None
 
 
-def fetch_history_nav(code, start_date, end_date):
-    """从东方财富API获取指定日期范围的历史净值"""
-    url = HISTORY_API.format(code=code, size=40, start=start_date, end=end_date)
-    try:
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Referer": "https://fund.eastmoney.com/"
-        })
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            raw = resp.read()
-        data = json.loads(raw.decode("utf-8"))
-        items = data.get("Data", {}).get("LSJZList", [])
-        results = []
-        for item in items:
-            results.append({
-                "date": item["FSRQ"],
-                "nav": float(item["DWJZ"]),
-                "ljjz": float(item.get("LJJZ", item["DWJZ"]))
-            })
-        return results
-    except Exception as e:
-        print(f"  [WARN] {code}: history fetch failed: {e}")
-        return []
-
-
-def _do_update_history_raw(filepath):
-    """更新指定文件中嵌入的 HISTORY_RAW 数据（通用逻辑）"""
+def _do_update_history_raw(filepath, funds_data):
+    """用 fund-nav.json 的最新 dwjz 追加到 HISTORY_RAW（不再依赖东方财富 history API）"""
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
@@ -95,7 +73,6 @@ def _do_update_history_raw(filepath):
         return False
 
     history_data = json.loads(match.group(1))
-    today = datetime.now()
     updated = False
 
     for code in FUND_CODES:
@@ -103,39 +80,27 @@ def _do_update_history_raw(filepath):
         if not arr:
             continue
 
-        # 找到最新日期
-        existing_dates = {d["date"] for d in arr}
-        latest_date = max(existing_dates)
+        # 从 fund-nav.json 获取最新 dwjz 和 jzrq
+        fund_info = funds_data.get(code, {})
+        new_jzrq = fund_info.get("jzrq", "")
+        new_dwjz = fund_info.get("dwjz", 0)
 
-        # 从最新日期的下一天到今天，获取缺失的历史净值
-        latest_dt = datetime.strptime(latest_date, "%Y-%m-%d")
-        start_dt = latest_dt + timedelta(days=1)
-
-        if start_dt > today:
+        if not new_jzrq or new_dwjz == 0:
             continue
 
-        start_str = start_dt.strftime("%Y-%m-%d")
-        end_str = today.strftime("%Y-%m-%d")
+        existing_dates = {d["date"] for d in arr}
 
-        print(f"  Fetching history {code}: {start_str} ~ {end_str}")
-        new_entries = fetch_history_nav(code, start_str, end_str)
-
-        added = 0
-        for entry in new_entries:
-            if entry["date"] not in existing_dates:
-                arr.append(entry)
-                existing_dates.add(entry["date"])
-                added += 1
-
-        # 重新排序（最新在前）
-        arr.sort(key=lambda x: x["date"], reverse=True)
-        history_data["funds"][code] = arr
-
-        if added > 0:
+        if new_jzrq not in existing_dates:
+            arr.append({
+                "date": new_jzrq,
+                "nav": new_dwjz,
+                "ljjz": new_dwjz
+            })
+            existing_dates.add(new_jzrq)
+            arr.sort(key=lambda x: x["date"], reverse=True)
+            history_data["funds"][code] = arr
             updated = True
-            print(f"    Added {added} entries for {code}")
-        else:
-            print(f"    No new entries for {code}")
+            print(f"    {code}: added {new_jzrq} nav={new_dwjz}")
 
     if updated:
         new_json = json.dumps(history_data, ensure_ascii=False, separators=(",", ":"))
@@ -150,14 +115,14 @@ def _do_update_history_raw(filepath):
     return updated
 
 
-def update_history_raw():
-    """更新 index.html 中嵌入的 HISTORY_RAW 数据"""
-    return _do_update_history_raw(HTML_FILE)
+def update_history_raw(funds_data):
+    """用 fund-nav.json 数据更新 index.html 中的 HISTORY_RAW"""
+    return _do_update_history_raw(HTML_FILE, funds_data)
 
 
-def update_report_history_raw():
-    """更新 fund-report.html 中嵌入的 HISTORY_RAW 数据"""
-    return _do_update_history_raw(REPORT_FILE)
+def update_report_history_raw(funds_data):
+    """用 fund-nav.json 数据更新 fund-report.html 中的 HISTORY_RAW"""
+    return _do_update_history_raw(REPORT_FILE, funds_data)
 
 
 def fetch_latest_nav_from_history(code):
@@ -241,15 +206,15 @@ def main():
 
     print(f"=== Updated {updated_count}/{len(FUND_CODES)} funds (fund-nav.json) ===")
 
-    # 2. 更新 index.html 中的 HISTORY_RAW（历史净值）
+    # 2. 用 fund-nav.json 数据更新 index.html 中的 HISTORY_RAW（不再调东方财富 history API）
     print("=== Updating HISTORY_RAW in index.html ===")
-    history_updated = update_history_raw()
+    history_updated = update_history_raw(funds)
     if not history_updated:
         print("  No history updates needed for index.html")
 
-    # 2b. 更新 fund-report.html 中的 HISTORY_RAW（历史净值）
+    # 2b. 更新 fund-report.html 中的 HISTORY_RAW
     print("=== Updating HISTORY_RAW in fund-report.html ===")
-    report_history_updated = update_report_history_raw()
+    report_history_updated = update_report_history_raw(funds)
     if not report_history_updated:
         print("  No history updates needed for fund-report.html")
 
