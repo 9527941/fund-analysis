@@ -2827,7 +2827,8 @@ function buildHoldingsTable(codes, navResults, sectorData) {
 
   const today = new Date().toISOString().slice(0,10);
 
-  codes.forEach(code => {
+  const activeCodes = codes.filter(c => hasRemainingShares(c));
+  activeCodes.forEach(code => {
     const f = FUND_DATA[code];
     const meta = FUND_META[code];
     const nav = navResults[code];
@@ -2911,7 +2912,7 @@ function buildHoldingsTable(codes, navResults, sectorData) {
       <div class="pnl-rate ${upDownClass(totalRate)}"><strong>${formatRate(totalRate)}</strong></div>
     </td>
     <td>--</td>
-    <td>共 ${codes.length} 只基金</td>
+    <td>共 ${activeCodes.length} 只基金</td>
     <td><strong>${formatMoney(totalInvest)}</strong></td>
   </tr>`;
 
