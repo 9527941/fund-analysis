@@ -2666,6 +2666,7 @@ function toggleSection(id, btn) {
 // NAV Data — 优先Gist缓存(绕过CORS), 直连作为实时补充
 // ============================================================
 const NAV_CACHE_URL = "./data/fund-nav.json";
+const NAV_VERSION = "2026062611";
 let NAV_CACHE = {};
 
 function navFromCache(code) {
@@ -3641,7 +3642,7 @@ async function init() {
     document.getElementById("navStatus").textContent = "正在加载净值缓存...";
     // 加载Gist净值缓存
     try {
-      const navResp = await fetch(NAV_CACHE_URL + "?t=" + Date.now());
+      const navResp = await fetch(NAV_CACHE_URL + "?v=" + NAV_VERSION);
       if (navResp.ok) {
         const navData = await navResp.json();
         NAV_CACHE = navData.funds || {};
