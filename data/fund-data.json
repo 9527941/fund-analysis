@@ -7,10 +7,12 @@
       "dividendType": "红利再投资",
       "transactions": [
         { "date": "2026-03-03", "type": "买入", "amount": 500.0, "shares": 275.31, "nav": 1.8161, "fee": 0 },
-        { "date": "2026-03-09", "type": "买入", "amount": 500.0, "shares": 280.26, "nav": 1.784, "fee": 0 },
+        { "date": "2026-03-18", "type": "买入", "amount": 500.0, "shares": 284.93, "nav": 1.7548, "fee": 0 },
         { "date": "2026-03-19", "type": "买入", "amount": 1000.0, "shares": 583.60, "nav": 1.7135, "fee": 0 },
         { "date": "2026-06-10", "type": "卖出", "amount": 1008.28, "shares": 400.0, "nav": 2.5207, "fee": 0 },
-        { "date": "2026-06-26", "type": "买入", "amount": 5000.0, "shares": 1412.98, "nav": 3.5386, "fee": 0 }
+        { "date": "2026-06-24", "type": "卖出", "amount": 1030.0, "shares": 310.0, "nav": 3.3226, "fee": 0 },
+        { "date": "2026-06-26", "type": "买入", "amount": 3000.0, "shares": 847.79, "nav": 3.5386, "fee": 0 },
+        { "date": "2026-06-26", "type": "买入", "amount": 2000.0, "shares": 565.20, "nav": 3.5386, "fee": 0 }
       ]
     },
     "002164": {
@@ -30,7 +32,8 @@
       "dividendType": "红利再投资",
       "transactions": [
         { "date": "2026-05-14", "type": "买入", "amount": 1000.0, "shares": 745.38, "nav": 1.3416, "fee": 0 },
-        { "date": "2026-05-15", "type": "买入", "amount": 1000.0, "shares": 747.33, "nav": 1.3381, "fee": 0 }
+        { "date": "2026-05-15", "type": "买入", "amount": 1000.0, "shares": 747.33, "nav": 1.3381, "fee": 0 },
+        { "date": "2026-06-24", "type": "卖出", "amount": 2552.24, "shares": 1492.71, "nav": 1.7098, "fee": 0 }
       ]
     },
     "004937": {
