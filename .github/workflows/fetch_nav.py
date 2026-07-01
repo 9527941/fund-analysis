@@ -9,7 +9,7 @@ import re
 import urllib.request
 from datetime import datetime, timedelta
 
-FUND_CODES = ["013841", "002164", "012630", "004937", "024246", "001423", "016020", "016186"]
+FUND_CODES = ["013841", "002164", "012630", "004937", "024246", "001423", "016020", "016186", "022718", "024239"]
 JSONP_URL = "https://fundgz.1234567.com.cn/js/{code}.js?rt={timestamp}"
 HISTORY_API = "https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize={size}&startDate={start}&endDate={end}"
 OUTPUT_NAV_FILE = "data/fund-nav.json"
