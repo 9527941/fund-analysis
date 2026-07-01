@@ -79,7 +79,9 @@
       "shortName": "广发电力",
       "dividendType": "红利再投资",
       "transactions": [
-        { "date": "2026-06-10", "type": "买入", "amount": 2000.0, "shares": 1706.48, "nav": 1.1720, "fee": 0 }
+        { "date": "2026-06-10", "type": "买入", "amount": 2000.0, "shares": 1706.48, "nav": 1.1720, "fee": 0 },
+        { "date": "2026-06-18", "type": "买入", "amount": 1000.0, "shares": 881.06, "nav": 1.135, "fee": 0 },
+        { "date": "2026-06-24", "type": "买入", "amount": 1000.0, "shares": 904.00, "nav": 1.1062, "fee": 0 }
       ]
     },
     "022718": {
