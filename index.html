@@ -1820,8 +1820,8 @@ const FUND_META = {
  */
 function calcRealizedPnL() {
   const codes = Object.keys(FUND_DATA);
-  const result = { funds: {}, grandRealized: 0, grandCost: 0 };
-  let grandRealized = 0, grandCost = 0;
+  const result = { funds: {}, grandRealized: 0, grandCost: 0, grandSellAmt: 0 };
+  let grandRealized = 0, grandCost = 0, grandSellAmt = 0;
 
   codes.forEach(code => {
     const f = FUND_DATA[code];
@@ -1852,6 +1852,7 @@ function calcRealizedPnL() {
           totalCost -= costBasis;
           grandRealized += realizedPnL;
           grandCost += costBasis;
+          grandSellAmt += sellAmount;
         }
         return;
       }
@@ -1882,6 +1883,7 @@ function calcRealizedPnL() {
 
   result.grandRealized = grandRealized;
   result.grandCost = grandCost;
+  result.grandSellAmt = grandSellAmt;
   result.grandRate = grandCost > 0 ? (grandRealized / grandCost) * 100 : 0;
   return result;
 }
@@ -2099,7 +2101,7 @@ function buildRealizedPnLTable() {
     <td class="fund-name-cell"><span class="fund-name-title">合计</span></td>
     <td>--</td>
     <td>--</td>
-    <td>--</td>
+    <td><strong>¥${data.grandSellAmt.toFixed(2)}</strong></td>
     <td><strong>¥${data.grandCost.toFixed(2)}</strong></td>
     <td class="pnl-cell">
       <div class="${upDownClass(data.grandRealized)}"><strong>${formatMoney(data.grandRealized)}</strong></div>
@@ -2666,7 +2668,7 @@ function toggleSection(id, btn) {
 // NAV Data — 优先Gist缓存(绕过CORS), 直连作为实时补充
 // ============================================================
 const NAV_CACHE_URL = "./data/fund-nav.json";
-const NAV_VERSION = "20260707021334";
+const NAV_VERSION = "20260706174043";
 let NAV_CACHE = {};
 
 function navFromCache(code) {
