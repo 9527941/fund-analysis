@@ -19,6 +19,7 @@ QDII_CODES = {"024239"}  # QDII 基金，净值 T+2 延迟，需特殊处理
 JSONP_URL = "https://fundgz.1234567.com.cn/js/{code}.js?rt={timestamp}"
 HISTORY_API = "https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize={size}&startDate={start}&endDate={end}"
 FUND_INFO_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNNBasicInformation?FCODE={code}&deviceid=web&plat=web"
+SINA_API = "https://hq.sinajs.cn/list="
 OUTPUT_NAV_FILE = "data/fund-nav.json"
 HTML_FILE = "index.html"
 REPORT_FILE = "fund-report.html"
@@ -232,6 +233,61 @@ def get_fund_name(code, cached_info):
     return ""  # 如果缓存也没有名字，后续会从 fundmobapi 获取
 
 
+def fetch_from_sina():
+    """从新浪财经 API 获取所有基金的实时估值（一次请求）"""
+    url = SINA_API + ",".join(f"fu_{c}" for c in FUND_CODES)
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://finance.sina.com.cn/"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read()
+        text = raw.decode("gbk", errors="replace")
+    except Exception as e:
+        print(f"  [ERROR] Sina API failed: {e}")
+        return {}
+
+    result = {}
+    for code in FUND_CODES:
+        for line in text.strip().split("\n"):
+            if f"fu_{code}" not in line:
+                continue
+            parts = line.split('"')
+            if len(parts) < 2:
+                continue
+            data = parts[1].split(",")
+            if len(data) < 7:
+                continue
+            try:
+                gsz = float(data[2]) if data[2] else 0
+                gszzl = float(data[6]) if data[6] else 0
+                gztime = data[1]
+            except (ValueError, IndexError):
+                continue
+            if gsz and gztime:
+                result[code] = {"gsz": gsz, "gszzl": gszzl, "gztime": gztime}
+            break
+    return result
+
+
+def is_trading_hours():
+    """判断当前是否在 A 股交易时段（周一至周五 9:30-15:00 北京时间）"""
+    now = datetime.now()
+    weekday = now.weekday()
+    hour = now.hour
+    minute = now.minute
+    if weekday >= 5:  # 周六日
+        return False
+    if hour < 9 or hour > 15:
+        return False
+    if hour == 9 and minute < 30:
+        return False
+    if hour == 15 and minute > 0:
+        return False
+    return True
+
+
 def main():
     # 1. 更新 fund-nav.json
     try:
@@ -247,14 +303,22 @@ def main():
 
     print(f"=== Fund NAV Update: {today} ===")
 
+    # 交易时段预加载新浪实时估值
+    in_trading = is_trading_hours()
+    sina_data = {}
+    if in_trading:
+        print("  [INFO] Trading hours detected, fetching Sina real-time estimates...")
+        sina_data = fetch_from_sina()
+        print(f"  [INFO] Sina returned data for {len(sina_data)} funds")
+
     for code in FUND_CODES:
         cached_info = cached_funds.get(code, {})
         print(f"  Fetching {code}...", end=" ")
 
-        # Step 1: 尝试 JSONP（已废弃，但仍作为首选尝试）
+        # Step 1: 尝试 JSONP（已废弃）
         data = fetch_nav(code)
 
-        # Step 2: JSONP 失败，使用东方财富 history API
+        # Step 2: 东方财富 history API（主数据源，获取 dwjz/jzrq）
         if not data or not data.get("dwjz"):
             if not data:
                 print("fundgz dead, using eastmoney...", end=" ")
@@ -264,7 +328,6 @@ def main():
                 em_data = fetch_qdii_nav(code)
 
             if em_data:
-                # 组装完整数据（合并缓存的名字）
                 name = get_fund_name(code, cached_info)
                 data = {
                     "name": name,
@@ -276,24 +339,32 @@ def main():
                     "gztime": em_data.get("jzrq", "") + " 15:00"
                 }
                 print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
-            else:
-                # Step 3: QDII 特殊处理
-                if code in QDII_CODES:
-                    qdii = fetch_qdii_nav(code)
-                    if qdii:
-                        name = get_fund_name(code, cached_info)
-                        data = {
-                            "name": name,
-                            "code": code,
-                            "gsz": qdii.get("dwjz", 0),
-                            "gszzl": qdii.get("gszzl", 0),
-                            "dwjz": qdii.get("dwjz", 0),
-                            "jzrq": qdii.get("jzrq", ""),
-                            "gztime": qdii.get("jzrq", "") + " 15:00"
-                        }
-                        print(f"QDII OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
+            elif code in QDII_CODES:
+                qdii = fetch_qdii_nav(code)
+                if qdii:
+                    name = get_fund_name(code, cached_info)
+                    data = {
+                        "name": name,
+                        "code": code,
+                        "gsz": qdii.get("dwjz", 0),
+                        "gszzl": qdii.get("gszzl", 0),
+                        "dwjz": qdii.get("dwjz", 0),
+                        "jzrq": qdii.get("jzrq", ""),
+                        "gztime": qdii.get("jzrq", "") + " 15:00"
+                    }
+                    print(f"QDII OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
         else:
             print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
+
+        # Step 3: 交易时段用新浪实时估值覆盖 gsz/gszzl/gztime
+        if data and code in sina_data:
+            sd = sina_data[code]
+            # 验证新浪数据合理性：gszzl 应在 -15% ~ +15% 范围内
+            if -15 <= sd["gszzl"] <= 15:
+                data["gsz"] = sd["gsz"]
+                data["gszzl"] = sd["gszzl"]
+                data["gztime"] = sd["gztime"]
+                print(f"  -> Sina estimate: gsz={sd['gsz']}, gszzl={sd['gszzl']}%, time={sd['gztime']}")
 
         if data and data.get("dwjz") and data.get("jzrq"):
             funds[code] = data
