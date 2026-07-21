@@ -311,6 +311,31 @@ def main():
         sina_data = fetch_from_sina()
         print(f"  [INFO] Sina returned data for {len(sina_data)} funds")
 
+    def _has_live_sina_estimate(cached_info):
+        """判断缓存中是否已有今日交易时段的新浪实时估值，且尚未过期"""
+        if not cached_info or not cached_info.get("gsz") or not cached_info.get("dwjz"):
+            return False
+        gsz = cached_info.get("gsz", 0)
+        dwjz = cached_info.get("dwjz", 0)
+        gztime = cached_info.get("gztime", "")
+        # gsz != dwjz 说明是实时估值，且 gztime 是时间格式（如 "13:46:00"）
+        if not (abs(gsz - dwjz) > 0.0001 and ":" in str(gztime) and len(str(gztime)) < 12):
+            return False
+        # 缓存更新日期必须是今天
+        if cache.get("updated", "") != today:
+            return False
+        # 检查估值时间是否仍有效：交易时段后超过2小时视为过期
+        try:
+            parts = str(gztime).split(":")
+            est_hour = int(parts[0])
+            est_min = int(parts[1]) if len(parts) > 1 else 0
+            now = datetime.now()
+            if now.hour > est_hour + 2 or (now.hour == est_hour + 2 and now.minute > est_min):
+                return False
+        except (ValueError, IndexError):
+            return False
+        return True
+
     for code in FUND_CODES:
         cached_info = cached_funds.get(code, {})
         print(f"  Fetching {code}...", end=" ")
@@ -359,12 +384,18 @@ def main():
         # Step 3: 交易时段用新浪实时估值覆盖 gsz/gszzl/gztime
         if data and code in sina_data:
             sd = sina_data[code]
-            # 验证新浪数据合理性：gszzl 应在 -15% ~ +15% 范围内
             if -15 <= sd["gszzl"] <= 15:
                 data["gsz"] = sd["gsz"]
                 data["gszzl"] = sd["gszzl"]
                 data["gztime"] = sd["gztime"]
                 print(f"  -> Sina estimate: gsz={sd['gsz']}, gszzl={sd['gszzl']}%, time={sd['gztime']}")
+
+        # Step 4: 非交易时段，保留缓存中的新浪实时估值（防止定时任务覆盖）
+        if data and not in_trading and _has_live_sina_estimate(cached_info):
+            data["gsz"] = cached_info["gsz"]
+            data["gszzl"] = cached_info["gszzl"]
+            data["gztime"] = cached_info["gztime"]
+            print(f"  -> Preserved cached live estimate: gsz={cached_info['gsz']}, gszzl={cached_info['gszzl']}%")
 
         if data and data.get("dwjz") and data.get("jzrq"):
             funds[code] = data
