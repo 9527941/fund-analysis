@@ -1222,7 +1222,7 @@
 <div class="header">
   <h1>📊 每日基金持仓分析</h1>
   <div class="date" id="reportDate">--</div>
-  <div class="nav-time"><span class="live-dot"></span><span id="navStatus">正在获取实时净值...</span></div>
+  <div class="nav-time"><span class="live-dot"></span><span id="navStatus">正在获取实时净值...</span><span id="navFreshness" style="margin-left:8px;font-weight:600;"></span></div>
 </div>
 
 <div class="dividend-warn" id="dividendWarn">
@@ -1581,7 +1581,7 @@ function runDCASim() {
 // Data Sources
 // ============================================================
 const DATA_URL = "https://gitee.com/t9527941/fund-analysis/raw/master/data/fund-data.json";
-const NAV_CACHE_URL = "https://gitee.com/t9527941/fund-analysis/raw/master/data/fund-nav.json";
+const NAV_CACHE_URL = "./data/fund-nav.json";
 let FUND_DATA = {};
 let autoRefreshTimer = null;
 let autoRefreshOn = false;
@@ -1797,7 +1797,7 @@ const EMBEDDED_FUND_DATA = {
     }
   }
 };
-const EMBEDDED_NAV = {"013841":{"name":"银华集成电路混合C","gsz":3.415,"dwjz":3.415,"gszzl":16.56,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"002164":{"name":"汇添富新睿精选混合C","gsz":1.476,"dwjz":1.476,"gszzl":7.27,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"012630":{"name":"广发国证半导体芯片ETF联接C","gsz":1.5289,"dwjz":1.5289,"gszzl":10.94,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"004937":{"name":"中航混改精选混合C","gsz":0.9801,"dwjz":0.9801,"gszzl":4.01,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"024246":{"name":"广发上证科创板人工智能ETF发起式联接C","gsz":1.4418,"dwjz":1.4418,"gszzl":6.56,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"001423":{"name":"","gsz":1.579,"dwjz":1.579,"gszzl":0.96,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"016020":{"name":"","gsz":0.74,"dwjz":0.74,"gszzl":4.4,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"016186":{"name":"","gsz":1.1158,"dwjz":1.1158,"gszzl":-0.15,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"022718":{"name":"","gsz":2.5743,"dwjz":2.5743,"gszzl":6.45,"gztime":"2026-07-21 15:00","jzrq":"2026-07-21"},"024239":{"name":"","gsz":2.7959,"dwjz":2.7959,"gszzl":-0.4,"gztime":"2026-07-20 15:00","jzrq":"2026-07-20"}};
+const EMBEDDED_NAV = {"013841":{"name":"银华集成电路混合C","gsz":3.4185,"dwjz":3.415,"gszzl":0.1025,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"002164":{"name":"汇添富新睿精选混合C","gsz":1.4727,"dwjz":1.476,"gszzl":-0.2236,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"012630":{"name":"广发国证半导体芯片ETF联接C","gsz":1.539,"dwjz":1.5289,"gszzl":0.6606,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"004937":{"name":"中航混改精选混合C","gsz":1.0082,"dwjz":0.9801,"gszzl":2.8671,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"024246":{"name":"广发上证科创板人工智能ETF发起式联接C","gsz":1.4408,"dwjz":1.4418,"gszzl":-0.0694,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"001423":{"name":"景顺长城安享回报混合C","gsz":1.5781,"dwjz":1.579,"gszzl":-0.057,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"016020":{"name":"招商中证电池主题ETF联接C","gsz":0.7295,"dwjz":0.74,"gszzl":-1.4189,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"016186":{"name":"广发电力ETF联接C","gsz":1.1221,"dwjz":1.1158,"gszzl":0.5646,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"022718":{"name":"永赢锐见进取混合C","gsz":2.5518,"dwjz":2.5743,"gszzl":-0.874,"gztime":"2026-07-22 11:05:00","jzrq":"2026-07-21"},"024239":{"name":"华夏全球科技先锋混合(QDII)C","gsz":2.7959,"dwjz":2.7959,"gszzl":-0.4,"gztime":"2026-07-20 15:00","jzrq":"2026-07-20"}};
 
 // ============================================================
 // Fund Metadata — 行业分类和特征
@@ -2576,23 +2576,65 @@ function navFromEmbedded(code) {
   };
 }
 
-async function tryFetchNav(code) {
-  const fundUrl = `https://fundgz.1234567.com.cn/js/${code}.js?rt=${Date.now()}`;
+// 实时估值数据源说明：原 fundgz JSONP 已下线；浏览器端新浪受 Referer 限制。
+// “当前预估数”改由 GitHub Actions 在交易时段写入 fund-nav.json，浏览器每次刷新
+// 重新拉取该缓存（带时间戳防 CDN 缓存），使“当日涨跌”显示最新预估。
+let _lastCacheReload = 0;
+let navUpdatedAt = null;          // fund-nav.json 的 updated_at（北京时间时间戳）
+const NAV_STALE_MINUTES = 20;     // 交易时段内该分钟数未更新则提示“估值可能已过期”
+
+function isTradingNow() {
+  // 用户本机即北京时间，直接用本地时间判断交易时段（周一至周五 9:30-15:00）
+  const d = new Date();
+  const day = d.getDay();
+  if (day === 0 || day === 6) return false;
+  const t = d.getHours() * 60 + d.getMinutes();
+  return t >= 9 * 60 + 30 && t <= 15 * 60;
+}
+function fmtClock(d) {
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+function updateNavFreshness() {
+  const el = document.getElementById("navFreshness");
+  if (!el) return;
+  if (!navUpdatedAt) { el.textContent = ""; return; }
+  const ts = new Date(String(navUpdatedAt).replace(" ", "T"));
+  if (isNaN(ts.getTime())) { el.textContent = ""; return; }
+  const ageMin = Math.floor((Date.now() - ts.getTime()) / 60000);
+  if (isTradingNow() && ageMin > NAV_STALE_MINUTES) {
+    el.style.color = "#e74c3c";
+    el.innerHTML = "⚠️ 估值可能已过期（更新于 " + fmtClock(ts) + "，已 " + ageMin + " 分钟）";
+  } else if (isTradingNow()) {
+    el.style.color = "#27ae60";
+    el.innerHTML = "估值更新于 " + fmtClock(ts);
+  } else {
+    el.style.color = "#888";
+    el.innerHTML = "休市 · 估值更新于 " + fmtClock(ts);
+  }
+}
+
+async function reloadNavCache() {
   try {
-    const resp = await fetch(fundUrl, { signal: AbortSignal.timeout(5000) });
-    const text = await resp.text();
-    const m = text.match(/jsonpgz\((.+)\)/);
-    if (m) {
-      const d = JSON.parse(m[1]);
-      return { name: d.name, code: d.fundcode, gsz: parseFloat(d.gsz), dwjz: parseFloat(d.dwjz), gszzl: parseFloat(d.gszzl), gztime: d.gztime, jzrq: d.jzrq };
-    }
-  } catch(e) { /* ignore */ }
-  return null;
+    const resp = await fetch(NAV_CACHE_URL + "?t=" + Date.now());
+    if (!resp.ok) return false;
+    const navData = await resp.json();
+    NAV_CACHE = navData.funds || {};
+    navUpdatedAt = navData.updated_at || navData.updated || null;
+    updateNavFreshness();
+    return true;
+  } catch (e) {
+    console.warn("reloadNavCache failed:", e);
+    return false;
+  }
 }
 
 async function fetchNav(code) {
-  const live = await tryFetchNav(code);
-  if (live) return live;
+  // 每次刷新都尽量拉取最新的 fund-nav.json（2 秒内只拉一次，避免重复请求）
+  const now = Date.now();
+  if (now - _lastCacheReload > 2000) {
+    await reloadNavCache();
+    _lastCacheReload = now;
+  }
   const cached = navFromCache(code);
   if (cached) return cached;
   return navFromEmbedded(code);
