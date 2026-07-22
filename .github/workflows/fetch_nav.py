@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-从天天基金 JSONP 接口获取最新净值数据，更新 data/fund-nav.json
+获取基金最新净值数据，更新 data/fund-nav.json
 同时将新净值追加到 index.html/fund-report.html 的 HISTORY_RAW 中
 GitHub Actions 自动运行，无需本地电脑
 
-v4 变更：HISTORY_RAW 不再依赖东方财富 history API（会被 GitHub IP 拦截），
-        改为直接从 fund-nav.json 的 dwjz 数据追加。
+v5 变更：fundgz.1234567.com.cn JSONP API 已下线(2026-07)，
+        数据源全面切换到东方财富 history API。
+        对于非QDII基金，dwjz/jzrq 取 history API；
+        QDII 基金(024239)用 fundmobapi 备用接口获取最新净值。
 """
 import json
 import re
@@ -13,21 +15,93 @@ import urllib.request
 from datetime import datetime, timedelta
 
 FUND_CODES = ["013841", "002164", "012630", "004937", "024246", "001423", "016020", "016186", "022718", "024239"]
+QDII_CODES = {"024239"}  # QDII 基金，净值 T+2 延迟，需特殊处理
 JSONP_URL = "https://fundgz.1234567.com.cn/js/{code}.js?rt={timestamp}"
 HISTORY_API = "https://api.fund.eastmoney.com/f10/lsjz?fundCode={code}&pageIndex=1&pageSize={size}&startDate={start}&endDate={end}"
+FUND_INFO_URL = "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNNBasicInformation?FCODE={code}&deviceid=web&plat=web"
+SINA_API = "https://hq.sinajs.cn/list="
 OUTPUT_NAV_FILE = "data/fund-nav.json"
 HTML_FILE = "index.html"
 REPORT_FILE = "fund-report.html"
 
 
+def fetch_from_eastmoney(code):
+    """从东方财富 history API 获取最新净值（主数据源）"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    url = HISTORY_API.format(code=code, size=3, start=start, end=today)
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": f"https://fundf10.eastmoney.com/jjjz_{code}.html"
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+        data = json.loads(raw.decode("utf-8"))
+        items = data.get("Data", {}).get("LSJZList", [])
+        if not items:
+            print(f"  [WARN] {code}: no history data")
+            return None
+        latest = items[0]
+        dwjz = float(latest["DWJZ"])
+        jzrq = latest["FSRQ"]
+        jzzzl = float(latest.get("JZZZL", 0))
+        # 如果最新一条数据超过2天（比如周五的数据到了周一还没更新），尝试取更早的
+        jzrq_dt = datetime.strptime(jzrq, "%Y-%m-%d")
+        if (datetime.now() - jzrq_dt).days > 2 and len(items) > 1:
+            prev = items[1]
+            prev_jzrq = datetime.strptime(prev["FSRQ"], "%Y-%m-%d")
+            if prev_jzrq > jzrq_dt:
+                dwjz = float(prev["DWJZ"])
+                jzrq = prev["FSRQ"]
+                jzzzl = float(prev.get("JZZZL", 0))
+
+        result = {
+            "dwjz": dwjz,
+            "jzrq": jzrq,
+            "gszzl": jzzzl,
+            "gsz": dwjz  # 非交易时段，估算值=单位净值
+        }
+        return result
+    except Exception as e:
+        print(f"  [ERROR] {code}: eastmoney history API failed: {e}")
+    return None
+
+
+def fetch_qdii_nav(code):
+    """获取 QDII 基金的最新净值（使用 fundmobapi 备用接口）"""
+    try:
+        url = FUND_INFO_URL.format(code=code)
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://fundmobapi.eastmoney.com/"
+        })
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+        data = json.loads(raw.decode("utf-8"))
+        datas = data.get("Datas", {})
+        dwjz = float(datas.get("DWJZ", 0))
+        jzrq = datas.get("FSRQ", "")
+        if dwjz and jzrq:
+            return {
+                "dwjz": dwjz,
+                "jzrq": jzrq,
+                "gszzl": 0,
+                "gsz": dwjz
+            }
+    except Exception as e:
+        print(f"  [ERROR] {code}: QDII API failed: {e}")
+    return None
+
+
 def fetch_nav(code):
-    """从天天基金JSONP接口获取基金净值数据"""
+    """从天天基金JSONP接口获取基金净值数据（已废弃，作为备用）"""
     url = JSONP_URL.format(code=code, timestamp=int(datetime.now().timestamp() * 1000))
     try:
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             raw = resp.read()
         text = None
         for enc in ["utf-8", "gbk", "gb2312"]:
@@ -38,7 +112,7 @@ def fetch_nav(code):
             except (UnicodeDecodeError, LookupError):
                 continue
         if not text or "jsonpgz" not in text:
-            print(f"  [WARN] {code}: no JSONP data")
+            print(f"  [WARN] {code}: fundgz API returned no data (likely deprecated)")
             return None
         start = text.index("(") + 1
         end = text.rindex(")")
@@ -54,7 +128,7 @@ def fetch_nav(code):
             "gztime": data.get("gztime", "")
         }
     except Exception as e:
-        print(f"  [ERROR] {code}: {e}")
+        print(f"  [WARN] {code}: fundgz API error: {e}")
     return None
 
 
@@ -152,49 +226,184 @@ def fetch_latest_nav_from_history(code):
     return None
 
 
+def get_fund_name(code, cached_info):
+    """从缓存或 API 获取基金名称"""
+    if cached_info and cached_info.get("name"):
+        return cached_info["name"]
+    return ""  # 如果缓存也没有名字，后续会从 fundmobapi 获取
+
+
+def fetch_from_sina():
+    """从新浪财经 API 获取所有基金的实时估值（一次请求）"""
+    url = SINA_API + ",".join(f"fu_{c}" for c in FUND_CODES)
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://finance.sina.com.cn/"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read()
+        text = raw.decode("gbk", errors="replace")
+    except Exception as e:
+        print(f"  [ERROR] Sina API failed: {e}")
+        return {}
+
+    result = {}
+    for code in FUND_CODES:
+        for line in text.strip().split("\n"):
+            if f"fu_{code}" not in line:
+                continue
+            parts = line.split('"')
+            if len(parts) < 2:
+                continue
+            data = parts[1].split(",")
+            if len(data) < 7:
+                continue
+            try:
+                gsz = float(data[2]) if data[2] else 0
+                gszzl = float(data[6]) if data[6] else 0
+                gztime = data[1]
+            except (ValueError, IndexError):
+                continue
+            if gsz and gztime:
+                result[code] = {"gsz": gsz, "gszzl": gszzl, "gztime": gztime}
+            break
+    return result
+
+
+def is_trading_hours():
+    """判断当前是否在 A 股交易时段（周一至周五 9:30-15:00 北京时间）"""
+    now = datetime.now()
+    weekday = now.weekday()
+    hour = now.hour
+    minute = now.minute
+    if weekday >= 5:  # 周六日
+        return False
+    if hour < 9 or hour > 15:
+        return False
+    if hour == 9 and minute < 30:
+        return False
+    if hour == 15 and minute > 0:
+        return False
+    return True
+
+
 def main():
-    # 1. 更新 fund-nav.json（实时净值缓存）
+    # 1. 更新 fund-nav.json
     try:
         with open(OUTPUT_NAV_FILE, "r", encoding="utf-8") as f:
             cache = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         cache = {"funds": {}, "updated": ""}
 
-    funds = cache.get("funds", {})
+    cached_funds = cache.get("funds", {})
+    funds = {}
     updated_count = 0
     today = datetime.now().strftime("%Y-%m-%d")
 
     print(f"=== Fund NAV Update: {today} ===")
 
+    # 交易时段预加载新浪实时估值
+    in_trading = is_trading_hours()
+    sina_data = {}
+    if in_trading:
+        print("  [INFO] Trading hours detected, fetching Sina real-time estimates...")
+        sina_data = fetch_from_sina()
+        print(f"  [INFO] Sina returned data for {len(sina_data)} funds")
+
+    def _has_live_sina_estimate(cached_info):
+        """判断缓存中是否已有今日交易时段的新浪实时估值，且尚未过期"""
+        if not cached_info or not cached_info.get("gsz") or not cached_info.get("dwjz"):
+            return False
+        gsz = cached_info.get("gsz", 0)
+        dwjz = cached_info.get("dwjz", 0)
+        gztime = cached_info.get("gztime", "")
+        # gsz != dwjz 说明是实时估值，且 gztime 是时间格式（如 "13:46:00"）
+        if not (abs(gsz - dwjz) > 0.0001 and ":" in str(gztime) and len(str(gztime)) < 12):
+            return False
+        # 缓存更新日期必须是今天
+        if cache.get("updated", "") != today:
+            return False
+        # 检查估值时间是否仍有效：交易时段后超过2小时视为过期
+        try:
+            parts = str(gztime).split(":")
+            est_hour = int(parts[0])
+            est_min = int(parts[1]) if len(parts) > 1 else 0
+            now = datetime.now()
+            if now.hour > est_hour + 2 or (now.hour == est_hour + 2 and now.minute > est_min):
+                return False
+        except (ValueError, IndexError):
+            return False
+        return True
+
     for code in FUND_CODES:
+        cached_info = cached_funds.get(code, {})
         print(f"  Fetching {code}...", end=" ")
+
+        # Step 1: 尝试 JSONP（已废弃）
         data = fetch_nav(code)
-        if data:
-            # 检查JSONP返回的jzrq是否是今天或昨天（工作日）
-            # 如果不是，尝试从history API获取更新的已确认净值
-            jzrq = data.get("jzrq", "")
-            jsonp_date = datetime.strptime(jzrq, "%Y-%m-%d") if jzrq else None
-            today_dt = datetime.now()
 
-            # 如果JSONP的jzrq距离今天超过1个工作日(>=1天)，说明净值可能还没更新到最新
-            # history API通常比JSONP更早发布当天净值
-            # v3修复: 从 >1 改为 >=1，让 fallback 更积极
-            if jsonp_date and (today_dt - jsonp_date).days >= 1:
-                print(f"jzrq={jzrq} stale, checking history...", end=" ")
-                hist = fetch_latest_nav_from_history(code)
-                if hist and hist["jzrq"] > jzrq:
-                    data["dwjz"] = hist["dwjz"]
-                    data["jzrq"] = hist["jzrq"]
-                    print(f"upgraded to jzrq={hist['jzrq']} dwjz={hist['dwjz']}")
-                else:
-                    print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
-            else:
+        # Step 2: 东方财富 history API（主数据源，获取 dwjz/jzrq）
+        if not data or not data.get("dwjz"):
+            if not data:
+                print("fundgz dead, using eastmoney...", end=" ")
+            em_data = fetch_from_eastmoney(code)
+            if not em_data and code in QDII_CODES:
+                print("QDII fallback...", end=" ")
+                em_data = fetch_qdii_nav(code)
+
+            if em_data:
+                name = get_fund_name(code, cached_info)
+                data = {
+                    "name": name,
+                    "code": code,
+                    "gsz": em_data.get("gsz", em_data.get("dwjz", 0)),
+                    "gszzl": em_data.get("gszzl", 0),
+                    "dwjz": em_data.get("dwjz", 0),
+                    "jzrq": em_data.get("jzrq", ""),
+                    "gztime": em_data.get("jzrq", "") + " 15:00"
+                }
                 print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
+            elif code in QDII_CODES:
+                qdii = fetch_qdii_nav(code)
+                if qdii:
+                    name = get_fund_name(code, cached_info)
+                    data = {
+                        "name": name,
+                        "code": code,
+                        "gsz": qdii.get("dwjz", 0),
+                        "gszzl": qdii.get("gszzl", 0),
+                        "dwjz": qdii.get("dwjz", 0),
+                        "jzrq": qdii.get("jzrq", ""),
+                        "gztime": qdii.get("jzrq", "") + " 15:00"
+                    }
+                    print(f"QDII OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
+        else:
+            print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
 
+        # Step 3: 交易时段用新浪实时估值覆盖 gsz/gszzl/gztime
+        if data and code in sina_data:
+            sd = sina_data[code]
+            if -15 <= sd["gszzl"] <= 15:
+                data["gsz"] = sd["gsz"]
+                data["gszzl"] = sd["gszzl"]
+                data["gztime"] = sd["gztime"]
+                print(f"  -> Sina estimate: gsz={sd['gsz']}, gszzl={sd['gszzl']}%, time={sd['gztime']}")
+
+        # Step 4: 非交易时段，保留缓存中的新浪实时估值（防止定时任务覆盖）
+        if data and not in_trading and _has_live_sina_estimate(cached_info):
+            data["gsz"] = cached_info["gsz"]
+            data["gszzl"] = cached_info["gszzl"]
+            data["gztime"] = cached_info["gztime"]
+            print(f"  -> Preserved cached live estimate: gsz={cached_info['gsz']}, gszzl={cached_info['gszzl']}%")
+
+        if data and data.get("dwjz") and data.get("jzrq"):
             funds[code] = data
             updated_count += 1
         else:
-            print("FAILED (keeping cached data)")
+            print("FAILED, keeping cached")
+            if cached_info:
+                funds[code] = cached_info
 
     result = {
         "funds": funds,
