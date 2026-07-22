@@ -262,7 +262,8 @@ def fetch_from_sina():
             try:
                 gsz = float(data[2]) if data[2] else 0
                 gszzl = float(data[6]) if data[6] else 0
-                gztime = data[1]
+                # data[7]=日期(如 2026-07-22), data[1]=时间(如 10:47:00)
+                gztime = (data[7] + " " + data[1]) if len(data) > 7 and data[7] else data[1]
             except (ValueError, IndexError):
                 continue
             if gsz and gztime:
@@ -272,8 +273,16 @@ def fetch_from_sina():
 
 
 def is_trading_hours():
-    """判断当前是否在 A 股交易时段（周一至周五 9:30-15:00 北京时间）"""
-    now = datetime.now()
+    """判断当前是否在 A 股交易时段（周一至周五 9:30-15:00 北京时间）
+
+    注意：GitHub Actions 运行器时区为 UTC，必须显式转换为 Asia/Shanghai，
+    否则 datetime.now() 取到的是 UTC 时间，交易时段判断会整体偏移 8 小时。
+    """
+    try:
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    except Exception:
+        now = datetime.now()
     weekday = now.weekday()
     hour = now.hour
     minute = now.minute
@@ -384,11 +393,21 @@ def main():
         # Step 3: 交易时段用新浪实时估值覆盖 gsz/gszzl/gztime
         if data and code in sina_data:
             sd = sina_data[code]
-            if -15 <= sd["gszzl"] <= 15:
+            # 仅当新浪返回的时间戳是“今天”才采用，避免 QDII 等无实时数据的基金
+            # 拿到陈旧的估值（例如 024239 曾返回 2026-04-21 的脏数据）
+            sina_date = sd.get("gztime", "").split(" ")[0]
+            try:
+                from zoneinfo import ZoneInfo
+                today_bjt = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
+            except Exception:
+                today_bjt = datetime.now().strftime("%Y-%m-%d")
+            if sina_date == today_bjt and -15 <= sd["gszzl"] <= 15:
                 data["gsz"] = sd["gsz"]
                 data["gszzl"] = sd["gszzl"]
                 data["gztime"] = sd["gztime"]
                 print(f"  -> Sina estimate: gsz={sd['gsz']}, gszzl={sd['gszzl']}%, time={sd['gztime']}")
+            else:
+                print(f"  -> Sina estimate skipped (date={sina_date} != today or out of range)")
 
         # Step 4: 非交易时段，保留缓存中的新浪实时估值（防止定时任务覆盖）
         if data and not in_trading and _has_live_sina_estimate(cached_info):
@@ -405,9 +424,15 @@ def main():
             if cached_info:
                 funds[code] = cached_info
 
+    try:
+        from zoneinfo import ZoneInfo
+        updated_at = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     result = {
         "funds": funds,
-        "updated": today
+        "updated": today,
+        "updated_at": updated_at
     }
 
     with open(OUTPUT_NAV_FILE, "w", encoding="utf-8") as f:
