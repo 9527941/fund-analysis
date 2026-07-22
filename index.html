@@ -1292,7 +1292,7 @@
 <div class="header">
   <h1>📊 每日基金持仓分析 <span style="font-size:0.5rem;color:#ccc;font-weight:400;">v2026062611</span></h1>
   <div class="date" id="reportDate">--</div>
-  <div class="nav-time"><span class="live-dot"></span><span id="navStatus">正在获取实时净值...</span></div>
+  <div class="nav-time"><span class="live-dot"></span><span id="navStatus">正在获取实时净值...</span><span id="navFreshness" style="margin-left:8px;font-weight:600;"></span></div>
 </div>
 
 <div class="dividend-warn" id="dividendWarn">
@@ -2450,7 +2450,7 @@ function buildQuickGlance(codes, navMap) {
       html += `<div class="glance-card"><div class="glance-name">${f.name}</div><div style="color:#999;font-size:0.7rem;">加载中...</div></div>`;
       return;
     }
-    const calc = calcFund(code, nav.dwjz || nav.gsz || 0);
+    const calc = calcFund(code, liveNav(nav));
     const dayChange = nav.gszzl;
     const barPct = Math.min(Math.abs(dayChange) * 15, 48); // Scale to max ~48% width each side
     const signalCls = calc.pnlRate > 5 ? "profit" : (calc.pnlRate < -5 ? "loss" : "flat");
@@ -2476,7 +2476,7 @@ function buildQuickGlance(codes, navMap) {
 function buildFundCard(code, navData) {
   const f = FUND_DATA[code];
   const meta = FUND_META[code];
-  const calc = calcFund(code, navData.dwjz || navData.gsz || 0);
+  const calc = calcFund(code, liveNav(navData));
   const holdingDays = getHoldingDays(code);
   const analysis = analyzeFund(code, navData, calc, holdingDays);
   const dayChange = navData.gszzl;
@@ -2673,7 +2673,7 @@ function toggleSection(id, btn) {
 // NAV Data — 优先Gist缓存(绕过CORS), 直连作为实时补充
 // ============================================================
 const NAV_CACHE_URL = "./data/fund-nav.json";
-const NAV_VERSION = "20260722015156";
+const NAV_VERSION = "20260722110600";
 let NAV_CACHE = {};
 
 function navFromCache(code) {
@@ -2686,23 +2686,78 @@ function navFromCache(code) {
   };
 }
 
-async function tryFetchNav(code) {
-  // JSONP bypasses CORS — works in CloudStudio and any browser
-  const fundUrl = `https://fundgz.1234567.com.cn/js/${code}.js?rt=${Date.now()}`;
+// 实时估值数据源说明：
+// 原 fundgz.1234567.com.cn JSONP 已于 2026-01 全行业下线；
+// 新浪 hq.sinajs.cn 在浏览器端受 Referer 限制，第三方站点无法直接调用。
+// 因此“当前预估数”改由 GitHub Actions 在交易时段定时从新浪抓取并写入
+// data/fund-nav.json，浏览器侧每次刷新都重新拉取该缓存（带时间戳防 CDN 缓存），
+// 从而让“当日涨跌”显示最新的当日预估涨跌，而非过时的确认净值涨跌。
+let _lastCacheReload = 0;
+let navUpdatedAt = null;          // fund-nav.json 的 updated_at（北京时间时间戳）
+const NAV_STALE_MINUTES = 20;     // 交易时段内该分钟数未更新则提示“估值可能已过期”
+
+function isTradingNow() {
+  // 用户本机即北京时间，直接用本地时间判断交易时段（周一至周五 9:30-15:00）
+  const d = new Date();
+  const day = d.getDay();
+  if (day === 0 || day === 6) return false;
+  const t = d.getHours() * 60 + d.getMinutes();
+  return t >= 9 * 60 + 30 && t <= 15 * 60;
+}
+function fmtClock(d) {
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+function updateNavFreshness() {
+  const el = document.getElementById("navFreshness");
+  if (!el) return;
+  if (!navUpdatedAt) { el.textContent = ""; return; }
+  const ts = new Date(String(navUpdatedAt).replace(" ", "T"));
+  if (isNaN(ts.getTime())) { el.textContent = ""; return; }
+  const ageMin = Math.floor((Date.now() - ts.getTime()) / 60000);
+  if (isTradingNow() && ageMin > NAV_STALE_MINUTES) {
+    el.style.color = "#e74c3c";
+    el.innerHTML = "⚠️ 估值可能已过期（更新于 " + fmtClock(ts) + "，已 " + ageMin + " 分钟）";
+  } else if (isTradingNow()) {
+    el.style.color = "#27ae60";
+    el.innerHTML = "估值更新于 " + fmtClock(ts);
+  } else {
+    el.style.color = "#888";
+    el.innerHTML = "休市 · 估值更新于 " + fmtClock(ts);
+  }
+}
+
+async function reloadNavCache() {
   try {
-    const d = await fetchJsonp(fundUrl, 'jsonpgz', 5000);
-    if (d && d.gsz !== undefined) {
-      return { name: d.name, code: d.fundcode, gsz: parseFloat(d.gsz), dwjz: parseFloat(d.dwjz), gszzl: parseFloat(d.gszzl), gztime: d.gztime, jzrq: d.jzrq };
-    }
-  } catch(e) { /* ignore */ }
-  return null;
+    const resp = await fetch(NAV_CACHE_URL + "?t=" + Date.now());
+    if (!resp.ok) return false;
+    const navData = await resp.json();
+    NAV_CACHE = navData.funds || {};
+    navUpdatedAt = navData.updated_at || navData.updated || null;
+    updateNavFreshness();
+    return true;
+  } catch (e) {
+    console.warn("reloadNavCache failed:", e);
+    return false;
+  }
+}
+
+// 返回用于“当前市值/盈亏”计算的净值：
+// 交易时段实时估值 gsz 与确认净值 dwjz 不同 → 用实时估值；否则用确认净值。
+function liveNav(nav) {
+  if (!nav) return 0;
+  const g = (nav.gsz !== undefined && nav.gsz !== null) ? nav.gsz : 0;
+  const d = (nav.dwjz !== undefined && nav.dwjz !== null) ? nav.dwjz : 0;
+  if (g && d && Math.abs(g - d) > 1e-6) return g;
+  return d || g;
 }
 
 async function fetchNav(code) {
-  // 先尝试直连（实时数据）
-  const live = await tryFetchNav(code);
-  if (live) return live;
-  // 回退到Gist缓存
+  // 每次刷新都尽量拉取最新的 fund-nav.json（2 秒内只拉一次，避免重复请求）
+  const now = Date.now();
+  if (now - _lastCacheReload > 2000) {
+    await reloadNavCache();
+    _lastCacheReload = now;
+  }
   return navFromCache(code);
 }
 
@@ -2841,7 +2896,7 @@ function buildHoldingsTable(codes, navResults, sectorData) {
     const nav = navResults[code];
     if (!nav) return;
     // Use confirmed NAV (dwjz) for accurate calculation of current value
-    const useNav = nav.dwjz || nav.gsz || 0;
+    const useNav = liveNav(nav);
     const calc = calcFund(code, useNav);
 
     totalInvest += calc.totalCost;
@@ -3444,7 +3499,7 @@ function buildInvestRef(codes, navResults) {
   codes.forEach(code => {
     const nav = navResults[code];
     if (!nav) return;
-    const useNav = nav.dwjz || nav.gsz || 0;
+    const useNav = liveNav(nav);
     const calc = calcFund(code, useNav);
     fundCalcs[code] = calc;
     totalInvest += calc.totalCost;
@@ -3606,7 +3661,7 @@ function buildCrossChannel(codes, navResults) {
   if (semiCodes.length >= 2) {
     // Compare performance
     const perfs = semiCodes.map(c => {
-      const calc = calcFund(c, (navResults[c]?.dwjz || navResults[c]?.gsz || 0));
+      const calc = calcFund(c, liveNav(navResults[c]));
       return { code: c, name: FUND_DATA[c].name, rate: calc.pnlRate };
     }).sort((a,b) => b.rate - a.rate);
     items.push({ tag: "watch", tagText: "优化建议", title: `${semiCodes.length}只半导体基金可考虑整合`,
@@ -3696,7 +3751,8 @@ async function renderSequential() {
   // 提前获取大盘快照，确保 buildHoldingsTable 能拿到基准指数数据
   await fetchMarketSnapshot();
 
-  // 先用 EMBEDDED_NAV / cache 构建表格骨架
+  // 先用最新缓存构建表格骨架（reloadNavCache 会带时间戳拉取最新的 fund-nav.json）
+  await reloadNavCache();
   for (const code of codes) {
     const cached = navFromCache(code);
     if (cached) lastNavResults[code] = cached;
@@ -3780,7 +3836,7 @@ function updateFundRowOnly(code, nav) {
 
     const f = FUND_DATA[code];
     const meta = FUND_META[code];
-    const calc = calcFund(code, nav.dwjz || nav.gsz || 0);
+    const calc = calcFund(code, liveNav(nav));
 
     const dwjz = nav.dwjz || 0;
     const jzrq = nav.jzrq || "--";
@@ -3859,7 +3915,7 @@ function recalcSummary(codes) {
   codes.forEach(code => {
     const nav = lastNavResults[code];
     if (!nav) return;
-    const useNav = nav.dwjz || nav.gsz || 0;
+    const useNav = liveNav(nav);
     const calc = calcFund(code, useNav);
     fundCalcs[code] = calc;
     totalInvest += calc.totalCost;
