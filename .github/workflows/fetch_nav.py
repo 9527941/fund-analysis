@@ -13,6 +13,10 @@ import json
 import re
 import urllib.request
 from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
 
 FUND_CODES = ["013841", "002164", "012630", "004937", "024246", "001423", "016020", "016186", "022718", "024239"]
 QDII_CODES = {"024239"}  # QDII 基金，净值 T+2 延迟，需特殊处理
@@ -27,8 +31,15 @@ REPORT_FILE = "fund-report.html"
 
 def fetch_from_eastmoney(code):
     """从东方财富 history API 获取最新净值（主数据源）"""
-    today = datetime.now().strftime("%Y-%m-%d")
-    start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    try:
+        from zoneinfo import ZoneInfo
+        _now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    except Exception:
+        _now = datetime.now()
+    today = _now.strftime("%Y-%m-%d")
+    # 窗口扩大到 30 天：跨假期/周末断档仍能取到上一个交易日净值
+    # （原 7 天窗口在 UTC 时区下会把上一个交易日排除，导致返回空）
+    start = (_now - timedelta(days=30)).strftime("%Y-%m-%d")
     url = HISTORY_API.format(code=code, size=3, start=start, end=today)
     try:
         req = urllib.request.Request(url, headers={
@@ -201,9 +212,14 @@ def update_report_history_raw(funds_data):
 
 def fetch_latest_nav_from_history(code):
     """从东方财富历史净值API获取最近一天的已确认净值（比JSONP更早发布）"""
-    today = datetime.now().strftime("%Y-%m-%d")
-    # 取最近5天的历史净值，确保能拿到最新已确认的
-    start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    try:
+        from zoneinfo import ZoneInfo
+        _now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    except Exception:
+        _now = datetime.now()
+    today = _now.strftime("%Y-%m-%d")
+    # 取最近 30 天的历史净值，确保跨假期/周末仍能取到最新已确认净值
+    start = (_now - timedelta(days=30)).strftime("%Y-%m-%d")
     url = HISTORY_API.format(code=code, size=5, start=start, end=today)
     try:
         req = urllib.request.Request(url, headers={
@@ -314,6 +330,11 @@ def main():
 
     # 交易时段预加载新浪实时估值
     in_trading = is_trading_hours()
+    try:
+        from zoneinfo import ZoneInfo
+        today_bjt = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
+    except Exception:
+        today_bjt = datetime.now().strftime("%Y-%m-%d")
     sina_data = {}
     if in_trading:
         print("  [INFO] Trading hours detected, fetching Sina real-time estimates...")
@@ -349,58 +370,44 @@ def main():
         cached_info = cached_funds.get(code, {})
         print(f"  Fetching {code}...", end=" ")
 
-        # Step 1: 尝试 JSONP（已废弃）
-        data = fetch_nav(code)
-
-        # Step 2: 东方财富 history API（主数据源，获取 dwjz/jzrq）
-        if not data or not data.get("dwjz"):
-            if not data:
-                print("fundgz dead, using eastmoney...", end=" ")
-            em_data = fetch_from_eastmoney(code)
-            if not em_data and code in QDII_CODES:
-                print("QDII fallback...", end=" ")
-                em_data = fetch_qdii_nav(code)
-
-            if em_data:
-                name = get_fund_name(code, cached_info)
-                data = {
-                    "name": name,
-                    "code": code,
-                    "gsz": em_data.get("gsz", em_data.get("dwjz", 0)),
-                    "gszzl": em_data.get("gszzl", 0),
-                    "dwjz": em_data.get("dwjz", 0),
-                    "jzrq": em_data.get("jzrq", ""),
-                    "gztime": em_data.get("jzrq", "") + " 15:00"
-                }
-                print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
-            elif code in QDII_CODES:
-                qdii = fetch_qdii_nav(code)
-                if qdii:
-                    name = get_fund_name(code, cached_info)
-                    data = {
-                        "name": name,
-                        "code": code,
-                        "gsz": qdii.get("dwjz", 0),
-                        "gszzl": qdii.get("gszzl", 0),
-                        "dwjz": qdii.get("dwjz", 0),
-                        "jzrq": qdii.get("jzrq", ""),
-                        "gztime": qdii.get("jzrq", "") + " 15:00"
-                    }
-                    print(f"QDII OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
-        else:
+        # Step 1: 东方财富 history API（主数据源，获取 dwjz/jzrq）
+        # 旧天天基金 JSONP 接口已于 2026-07 下架，不再调用，避免 10s 超时拖累
+        em_data = fetch_from_eastmoney(code)
+        if em_data:
+            name = get_fund_name(code, cached_info)
+            data = {
+                "name": name or cached_info.get("name", ""),
+                "code": code,
+                "gsz": em_data.get("gsz", em_data.get("dwjz", 0)),
+                "gszzl": em_data.get("gszzl", 0),
+                "dwjz": em_data.get("dwjz", 0),
+                "jzrq": em_data.get("jzrq", ""),
+                "gztime": (em_data.get("jzrq", "") or "") + " 15:00"
+            }
             print(f"OK (dwjz={data['dwjz']}, jzrq={data['jzrq']})")
+        else:
+            # 东财无数据（境外访问异常 / 假期断档）→ 用缓存兜底，
+            # 保证下方新浪当日实时估值仍能写入，而非整只基金放弃更新
+            if cached_info.get("dwjz") and cached_info.get("jzrq"):
+                data = {
+                    "name": cached_info.get("name", ""),
+                    "code": code,
+                    "gsz": cached_info.get("gsz", cached_info.get("dwjz")),
+                    "gszzl": cached_info.get("gszzl", 0),
+                    "dwjz": cached_info.get("dwjz"),
+                    "jzrq": cached_info.get("jzrq"),
+                    "gztime": cached_info.get("gztime", cached_info.get("jzrq") + " 15:00")
+                }
+                print("eastmoney empty, cached base applied")
+            else:
+                data = None
+                print("FAILED (no eastmoney data & no cache)")
 
-        # Step 3: 交易时段用新浪实时估值覆盖 gsz/gszzl/gztime
-        if data and code in sina_data:
+        # Step 2: 交易时段用新浪实时估值覆盖 gsz/gszzl/gztime
+        # QDII(024239) 不覆盖：T+2 无当日实时估值，且新浪曾返回脏数据
+        if data and code not in QDII_CODES and code in sina_data:
             sd = sina_data[code]
-            # 仅当新浪返回的时间戳是“今天”才采用，避免 QDII 等无实时数据的基金
-            # 拿到陈旧的估值（例如 024239 曾返回 2026-04-21 的脏数据）
             sina_date = sd.get("gztime", "").split(" ")[0]
-            try:
-                from zoneinfo import ZoneInfo
-                today_bjt = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d")
-            except Exception:
-                today_bjt = datetime.now().strftime("%Y-%m-%d")
             if sina_date == today_bjt and -15 <= sd["gszzl"] <= 15:
                 data["gsz"] = sd["gsz"]
                 data["gszzl"] = sd["gszzl"]
@@ -408,8 +415,10 @@ def main():
                 print(f"  -> Sina estimate: gsz={sd['gsz']}, gszzl={sd['gszzl']}%, time={sd['gztime']}")
             else:
                 print(f"  -> Sina estimate skipped (date={sina_date} != today or out of range)")
+        elif data and code in QDII_CODES:
+            print("  -> QDII: skip Sina realtime override (T+2)")
 
-        # Step 4: 非交易时段，保留缓存中的新浪实时估值（防止定时任务覆盖）
+        # Step 3: 非交易时段，保留缓存中的新浪实时估值（防止定时任务覆盖）
         if data and not in_trading and _has_live_sina_estimate(cached_info):
             data["gsz"] = cached_info["gsz"]
             data["gszzl"] = cached_info["gszzl"]
