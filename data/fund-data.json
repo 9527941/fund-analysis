@@ -523,34 +523,20 @@
           "fee": 0
         },
         {
-          "date": "2026-09-30",
-          "type": "买入",
-          "amount": 1000.0,
-          "shares": 351.84,
-          "nav": 2.8422,
-          "fee": 0
-        }
-      ]
-    },
-    "013841X": {
-      "name": "银华集成电路·他软件",
-      "shortName": "银华集成(他软件)",
-      "dividendType": "红利再投资",
-      "transactions": [
-        {
-          "date": "2026-09-18",
-          "type": "买入",
-          "amount": 0.0,
-          "shares": 205.29,
-          "nav": 3.1662,
-          "fee": 0
-        },
-        {
           "date": "2026-09-18",
           "type": "卖出",
           "amount": 650.0,
           "shares": 205.29,
           "nav": 3.1662,
+          "fee": 0,
+          "external": true
+        },
+        {
+          "date": "2026-09-30",
+          "type": "买入",
+          "amount": 1000.0,
+          "shares": 351.84,
+          "nav": 2.8422,
           "fee": 0
         }
       ]
