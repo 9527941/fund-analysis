@@ -2725,7 +2725,7 @@ const NAV_CACHE_URL = "./data/fund-nav.json";
 const WORKER_URL = "";  // 部署 Cloudflare Worker 后填入，如 https://fund-nav-proxy.xxx.workers.dev ；留空则用 GitHub 缓存兜底
 const DEFAULT_FUND_CODES = ["013841","002164","012630","004937","024246","001423","016020","016186","022718","024239"];
 let navSource = "cache"; // "worker"=Cloudflare实时代理(盘中实时) ；"cache"=GitHub Pages缓存(可能滞后)
-const NAV_VERSION = "20261030020925";
+const NAV_VERSION = "20261030021227";
 let NAV_CACHE = {};
 let showConfirmedNav = false;   // false=实时估值(含当日)  true=确认净值(已收盘确认)
 
